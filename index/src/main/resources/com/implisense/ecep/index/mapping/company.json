@@ -1,0 +1,101 @@
+{
+  "company": {
+    "_all": {
+      "enabled": false
+    },
+    "dynamic": "strict",
+    "properties": {
+      "id": {
+        "index": "no",
+        "type": "string"
+      },
+      "name": {
+        "index": "analyzed",
+        "analyzer": "keywordLowercaseAnalyzer",
+        "type": "string",
+        "fields": {
+          "analyzed": {
+            "index": "analyzed",
+            "similarity": "BM25",
+            "type": "string"
+          }
+        }
+      },
+      "street": {
+        "index": "not_analyzed",
+        "type": "string"
+      },
+      "zip": {
+        "index": "not_analyzed",
+        "type": "string"
+      },
+      "city": {
+        "index": "not_analyzed",
+        "type": "string"
+      },
+      "phone": {
+        "index": "no",
+        "type": "string"
+      },
+      "fax": {
+        "index": "no",
+        "type": "string"
+      },
+      "email": {
+        "index": "no",
+        "type": "string"
+      },
+      "url": {
+        "index": "not_analyzed",
+        "type": "string"
+      },
+      "foundingDate": {
+        "format": "dateOptionalTime",
+        "type": "date"
+      },
+      "liquidationDate": {
+        "format": "dateOptionalTime",
+        "type": "date"
+      },
+      "externalIds": {
+        "properties": {
+          "vat": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "ebid": {
+            "index": "not_analyzed",
+            "type": "string"
+          }
+        }
+      },
+      "legalForm": {
+        "properties": {
+          "value": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "estimated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "active": {
+        "type": "boolean"
+      },
+      "content": {
+        "properties": {
+          "general": {
+            "index": "analyzed",
+            "store": "no",
+            "type": "string"
+          }
+        }
+      },
+      "timestamp": {
+        "format": "dateOptionalTime",
+        "type": "date"
+      }
+    }
+  }
+}
