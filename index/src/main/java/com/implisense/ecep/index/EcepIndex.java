@@ -2,11 +2,19 @@ package com.implisense.ecep.index;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
+import com.implisense.ecep.index.model.Company;
+import com.implisense.ecep.index.util.ElasticsearchRequestExecutor;
+import com.implisense.ecep.index.util.ObjectMapperFactory;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
+import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.search.SearchHit;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.slf4j.Logger;
@@ -14,13 +22,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collection;
+import java.util.Map;
+
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class EcepIndex {
 
     private static Logger LOGGER = LoggerFactory.getLogger(EcepIndex.class);
 
-    private static final String CLUSTER_NAME = "ecep";
-    private static final String INDEX_NAME = "ecep";
     private static final String COMPANY_TYPE = "company";
 
     private Client client;
@@ -96,6 +107,86 @@ public class EcepIndex {
                 this.client.admin().cluster().health(new ClusterHealthRequest(this.indexName).waitForYellowStatus())
                         .actionGet();
             }
+        }
+    }
+
+    public void commit() {
+        this.client.admin().indices().refresh(new RefreshRequest(this.indexName)).actionGet();
+    }
+
+    public void addCompany(Company company) {
+        this.add(COMPANY_TYPE, company, company.getId());
+    }
+
+    public void addCompanies(Collection<Company> companies) {
+        this.addAll(COMPANY_TYPE, companies.stream().collect(toMap(Company::getId, identity())));
+    }
+
+    /**
+     * Performs a GET request against ES. Returns <code>null</code>, if the requested company was
+     * not found.
+     *
+     * @param id The company ID
+     * @return The company object for the given ID or <code>null</code>, if not found
+     */
+    public Company getCompany(String id) {
+        Company company = null;
+        GetResponse getResponse = this.client.prepareGet(this.indexName, COMPANY_TYPE, id).get();
+        if (getResponse.isExists()) {
+            company = this.parseCompany(getResponse);
+        }
+        return company;
+    }
+
+    private void add(String type, Object document, String id) {
+        try {
+            String jsonDoc = ObjectMapperFactory.instance().writeValueAsString(document);
+            ElasticsearchRequestExecutor.execute(this.client.prepareIndex(this.indexName, type, id).setSource(jsonDoc));
+        } catch (IOException e) {
+            LOGGER.error("Error indexing document \"" + id + "\" of type \"" + type + "\"!", e);
+        }
+    }
+
+    /**
+     * Performs a bulk request including all index requests of the documents. The map contains the
+     * documents as values and the corresponding IDs as keys. The map may be empty but must not be
+     * null.
+     */
+    private <T extends Object> void addAll(String type, Map<String, T> documents) {
+        if (documents.isEmpty()) {
+            return; // do nothing on empty input to avoid the following ES exception.
+        }
+        try {
+            BulkRequestBuilder bulkRequest = this.client.prepareBulk();
+            for (Map.Entry<String, T> docEntry : documents.entrySet()) {
+                String jsonDoc = (docEntry.getValue() instanceof String) ? (String) docEntry.getValue()
+                        : ObjectMapperFactory.instance().writeValueAsString(docEntry.getValue());
+                bulkRequest.add(this.client.prepareIndex(this.indexName, type, docEntry.getKey()).setSource(jsonDoc));
+            }
+            BulkResponse bulkResponse = ElasticsearchRequestExecutor.execute(bulkRequest);
+            if (bulkResponse.hasFailures()) {
+                LOGGER.error("Error bulk indexing documents  " + documents.keySet()
+                        + " of type \"" + type + "\": " + bulkResponse.buildFailureMessage());
+            }
+        } catch (IOException e) {
+            LOGGER.error("Error bulk indexing documents  " + documents.keySet() + " of type \""
+                    + type + "\"!", e);
+        }
+    }
+
+    private Company parseCompany(GetResponse response) {
+        return this.parseCompany(response.getSourceAsString());
+    }
+
+    private Company parseCompany(SearchHit hit) {
+        return this.parseCompany(hit.getSourceAsString());
+    }
+
+    private Company parseCompany(String source) {
+        try {
+            return ObjectMapperFactory.instance().readValue(source, Company.class);
+        } catch (IOException e) {
+            throw new EcepIndexException("Exception parsing company document from index!", e);
         }
     }
 

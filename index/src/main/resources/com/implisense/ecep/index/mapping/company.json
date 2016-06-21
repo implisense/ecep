@@ -9,6 +9,10 @@
         "index": "no",
         "type": "string"
       },
+      "uri": {
+        "index": "not_analyzed",
+        "type": "string"
+      },
       "name": {
         "index": "analyzed",
         "analyzer": "keywordLowercaseAnalyzer",
@@ -21,17 +25,61 @@
           }
         }
       },
-      "street": {
+      "address": {
+        "properties": {
+          "careOf": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "poBox": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "line1": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "line2": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "town": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "county": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "country": {
+            "index": "not_analyzed",
+            "type": "string"
+          },
+          "postCode": {
+            "index": "not_analyzed",
+            "type": "string"
+          }
+        }
+      },
+      "category": {
         "index": "not_analyzed",
         "type": "string"
       },
-      "zip": {
+      "status": {
         "index": "not_analyzed",
         "type": "string"
       },
-      "city": {
+      "countryOfOrigin": {
         "index": "not_analyzed",
         "type": "string"
+      },
+      "incorporationDate": {
+        "format": "dateOptionalTime",
+        "type": "date"
+      },
+      "dissolutionDate": {
+        "format": "dateOptionalTime",
+        "type": "date"
       },
       "phone": {
         "index": "no",
@@ -49,14 +97,6 @@
         "index": "not_analyzed",
         "type": "string"
       },
-      "foundingDate": {
-        "format": "dateOptionalTime",
-        "type": "date"
-      },
-      "liquidationDate": {
-        "format": "dateOptionalTime",
-        "type": "date"
-      },
       "externalIds": {
         "properties": {
           "vat": {
@@ -69,25 +109,26 @@
           }
         }
       },
-      "legalForm": {
-        "properties": {
-          "value": {
-            "index": "not_analyzed",
-            "type": "string"
-          },
-          "estimated": {
-            "type": "boolean"
-          }
-        }
-      },
-      "active": {
-        "type": "boolean"
-      },
       "content": {
         "properties": {
           "general": {
             "index": "analyzed",
-            "store": "no",
+            "type": "string"
+          }
+        }
+      },
+      "sicCodes": {
+        "index": "not_analyzed",
+        "type": "string"
+      },
+      "previousNames": {
+        "properties": {
+          "changeDate": {
+            "format": "dateOptionalTime",
+            "type": "date"
+          },
+          "name": {
+            "index": "not_analyzed",
             "type": "string"
           }
         }
