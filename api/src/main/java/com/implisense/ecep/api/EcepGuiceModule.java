@@ -1,12 +1,11 @@
 package com.implisense.ecep.api;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.StdDateFormat;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.implisense.ecep.api.config.EcepConfig;
 import com.implisense.ecep.api.config.ElasticsearchConfig;
+import com.implisense.ecep.index.util.ObjectMapperFactory;
 import io.dropwizard.setup.Environment;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
@@ -16,9 +15,6 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.net.InetSocketAddress;
-import java.text.DateFormat;
-import java.util.Locale;
-import java.util.TimeZone;
 
 public class EcepGuiceModule extends AbstractModule {
 
@@ -50,11 +46,7 @@ public class EcepGuiceModule extends AbstractModule {
     @Singleton
     @Inject
     ObjectMapper provideObjectMapper() {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        DateFormat dateFormat = StdDateFormat.getISO8601Format(TimeZone.getTimeZone("Europe/London"), Locale.ENGLISH);
-        objectMapper.setDateFormat(dateFormat);
-        return objectMapper;
+        return ObjectMapperFactory.instance();
     }
 
 }
