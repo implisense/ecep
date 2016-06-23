@@ -5,6 +5,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.implisense.ecep.api.config.EcepConfig;
 import com.implisense.ecep.api.config.ElasticsearchConfig;
+import com.implisense.ecep.index.EcepIndex;
 import com.implisense.ecep.index.util.ObjectMapperFactory;
 import io.dropwizard.setup.Environment;
 import org.elasticsearch.client.Client;
@@ -14,6 +15,7 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 
 public class EcepGuiceModule extends AbstractModule {
@@ -40,6 +42,15 @@ public class EcepGuiceModule extends AbstractModule {
                 .put("client.transport.ping_timeout", "60s").build()).build()
                 .addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(
                         elasticsearchConf.getHost(), elasticsearchConf.getPort())));
+    }
+
+    @Provides
+    @Singleton
+    @Inject
+    EcepIndex provideCompanyIndex(Client client) throws IOException {
+        EcepIndex index = new EcepIndex(client);
+        index.createIndex();
+        return index;
     }
 
     @Provides
