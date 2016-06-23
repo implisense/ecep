@@ -1,0 +1,14 @@
+{
+  "sictitle": {
+    "_all": {
+      "enabled": false
+    },
+    "dynamic": "strict",
+    "properties": {
+      "title": {
+        "index": "no",
+        "type": "string"
+      }
+    }
+  }
+}

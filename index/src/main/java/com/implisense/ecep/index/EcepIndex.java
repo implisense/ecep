@@ -1,20 +1,28 @@
 package com.implisense.ecep.index;
 
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.implisense.ecep.index.model.Company;
 import com.implisense.ecep.index.util.ElasticsearchRequestExecutor;
 import com.implisense.ecep.index.util.ObjectMapperFactory;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteRequestBuilder;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHitField;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.slf4j.Logger;
@@ -22,21 +30,37 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
+import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 
 public class EcepIndex {
 
     private static Logger LOGGER = LoggerFactory.getLogger(EcepIndex.class);
 
+    private static final String INDEX_NAME = "ecep";
+
     private static final String COMPANY_TYPE = "company";
+    private static final String SICTITLE_TYPE = "sictitle";
 
     private Client client;
     private String indexName;
     protected boolean testMode = false;
+
+    /**
+     * Creates the ecep index DAO.
+     *
+     * @param client    The elasticsearch client connection to use.
+     */
+    public EcepIndex(Client client) {
+        this(client, INDEX_NAME);
+    }
 
     /**
      * Creates the ecep index DAO.
@@ -65,7 +89,11 @@ public class EcepIndex {
         this.testMode = true;
     }
 
-    public void createIndex(String... types) throws IOException {
+    public void createIndex() {
+        this.createIndex(COMPANY_TYPE, SICTITLE_TYPE);
+    }
+
+    public void createIndex(String... types) {
         if (!this.client.admin().indices().exists(new IndicesExistsRequest(this.indexName)).actionGet().isExists()) {
             // extract the alphanumeric prefix from the index name as the prefix for the new real name and the settings
             // filename to search for in the classpath.
@@ -77,49 +105,105 @@ public class EcepIndex {
                 this.client.admin().indices().prepareAliases().addAlias(realIndexName, this.indexName).execute()
                         .actionGet();
             } else {
-                CreateIndexRequest createIndexRequest = new CreateIndexRequest(realIndexName);
-                for (String type : types) {
-                    URL url = Resources.getResource("type-mappings/" + type + ".json");
-                    String typeMapping = Resources.toString(url, Charsets.UTF_8);
-                    createIndexRequest.mapping(type, typeMapping);
-                }
-                Settings.Builder settings = Settings.settingsBuilder();
                 try {
-                    URL url = Resources.getResource("index-settings/" + indexNamePrefix + ".json");
-                    settings = settings.loadFromSource(Resources
-                            .toString(url, Charsets.UTF_8));
-                } catch (IllegalArgumentException e) {
-                    // in this case there was no specific settings file found in the classpath for the current index
-                    // name
-                    // prefix, so we simply don't add any special settings to this index.
-                }
-                if (this.testMode) {
-                    settings.put("number_of_shards", 1);
-                    settings.put("number_of_replicas", 0);
-                }
-                createIndexRequest.settings(settings);
+                    CreateIndexRequest createIndexRequest = new CreateIndexRequest(realIndexName);
+                    for (String type : types) {
+                        URL url = EcepIndex.class.getResource("mapping/" + type + ".json");
+                        String typeMapping = Resources.toString(url, Charsets.UTF_8);
+                        createIndexRequest.mapping(type, typeMapping);
+                    }
+                    Settings.Builder settings = Settings.settingsBuilder();
+                    try {
+                        URL url = EcepIndex.class.getResource("settings/" + indexNamePrefix + ".json");
+                        settings = settings.loadFromSource(Resources
+                                .toString(url, Charsets.UTF_8));
+                    } catch (IllegalArgumentException e) {
+                        // in this case there was no specific settings file found in the classpath for the current index
+                        // name prefix, so we simply don't put any special settings to this index.
+                    }
+                    if (this.testMode) {
+                        settings.put("number_of_shards", 1);
+                        settings.put("number_of_replicas", 0);
+                    }
+                    createIndexRequest.settings(settings);
 
-                this.client.admin().indices().create(createIndexRequest).actionGet();
-                if (!realIndexName.equals(this.indexName)) {
-                    this.client.admin().indices().prepareAliases().addAlias(realIndexName, this.indexName).execute()
+                    this.client.admin().indices().create(createIndexRequest).actionGet();
+                    if (!realIndexName.equals(this.indexName)) {
+                        this.client.admin().indices().prepareAliases().addAlias(realIndexName, this.indexName).get();
+                    }
+                    this.client.admin().cluster().health(new ClusterHealthRequest(this.indexName).waitForYellowStatus())
                             .actionGet();
+                } catch (IOException e) {
+                    throw new EcepIndexException("Error reading resource files at index creation!", e);
                 }
-                this.client.admin().cluster().health(new ClusterHealthRequest(this.indexName).waitForYellowStatus())
-                        .actionGet();
             }
         }
+    }
+
+    public void deleteIndex() {
+        if (this.client.admin().indices().exists(new IndicesExistsRequest(this.indexName)).actionGet().isExists()) {
+            this.client.admin().indices().delete(new DeleteIndexRequest(this.indexName)).actionGet();
+        }
+    }
+
+    /**
+     * Removes all documents in this index. Please note that this method is only meant for testing
+     * purposes and is not allowed in production. Thus, it does only work, if the
+     * <code>testMode</code> flag is set to true!
+     */
+    public void clear() {
+        if (this.testMode) {
+            this.removeDocuments(matchAllQuery(), null);
+        }
+    }
+
+    /**
+     * Removes all matching documents from the current index.
+     * If the type is provided, the query only matches documents of this type.
+     *
+     * @param query The documents to be deleted
+     * @param type Only documents of this type will be deleted (optional)
+     */
+    private void removeDocuments(QueryBuilder query, String type) {
+        SearchRequestBuilder searchRequestBuilder = this.client.prepareSearch(indexName);
+        if(type != null) {
+            searchRequestBuilder.setTypes(type);
+        }
+        TimeValue keepAlive = new TimeValue(1, TimeUnit.MINUTES);
+        SearchResponse response = ElasticsearchRequestExecutor.execute(searchRequestBuilder
+                .setScroll(keepAlive).setQuery(query).addFields("_routing", "_parent").setSize(100));
+        while(response.getHits().getHits().length > 0) {
+            BulkRequestBuilder bulkRequestBuilder = this.client.prepareBulk();
+            for (SearchHit hit : response.getHits()) {
+                DeleteRequestBuilder deleteRequest =
+                        this.client.prepareDelete(this.indexName, hit.getType(), hit.id());
+                SearchHitField routing = hit.field("_routing");
+                if (routing != null) {
+                    deleteRequest.setRouting(routing.value());
+                }
+                SearchHitField parent = hit.field("_parent");
+                if (parent != null) {
+                    deleteRequest.setParent(parent.value());
+                }
+                bulkRequestBuilder.add(deleteRequest);
+            }
+            ElasticsearchRequestExecutor.execute(bulkRequestBuilder);
+            response = ElasticsearchRequestExecutor.execute(
+                    this.client.prepareSearchScroll(response.getScrollId()).setScroll(keepAlive));
+        }
+        this.client.prepareClearScroll().addScrollId(response.getScrollId()).get();
     }
 
     public void commit() {
         this.client.admin().indices().refresh(new RefreshRequest(this.indexName)).actionGet();
     }
 
-    public void addCompany(Company company) {
-        this.add(COMPANY_TYPE, company, company.getId());
+    public void putCompany(Company company) {
+        this.put(COMPANY_TYPE, company, company.getId());
     }
 
-    public void addCompanies(Collection<Company> companies) {
-        this.addAll(COMPANY_TYPE, companies.stream().collect(toMap(Company::getId, identity())));
+    public void putCompanies(Collection<Company> companies) {
+        this.putAll(COMPANY_TYPE, companies.stream().collect(toMap(Company::getId, identity())));
     }
 
     /**
@@ -138,7 +222,52 @@ public class EcepIndex {
         return company;
     }
 
-    private void add(String type, Object document, String id) {
+    private Company parseCompany(GetResponse response) {
+        return this.parseCompany(response.getSourceAsString());
+    }
+
+    private Company parseCompany(SearchHit hit) {
+        return this.parseCompany(hit.getSourceAsString());
+    }
+
+    private Company parseCompany(String source) {
+        try {
+            return ObjectMapperFactory.instance().readValue(source, Company.class);
+        } catch (IOException e) {
+            throw new EcepIndexException("Exception parsing company document from index!", e);
+        }
+    }
+
+    public void putSicTitles(Map<String, String> sicTitles) {
+        this.putAll(SICTITLE_TYPE, sicTitles.entrySet().stream()
+                .collect(toMap(e -> e.getKey(), e -> ImmutableMap.of("title", e.getValue()))));
+    }
+
+    /**
+     * Performs a GET request against ES. Returns <code>null</code>, if the requested SIC code title was
+     * not found.
+     *
+     * @param sicCode The SIC code
+     * @return The corresponding title or <code>null</code>, if not found
+     */
+    public String getSicTitle(String sicCode) {
+        String title = null;
+        GetResponse getResponse = this.client.prepareGet(this.indexName, SICTITLE_TYPE, sicCode)
+                .setFields("title").get();
+        if (getResponse.isExists()) {
+            title = getResponse.getField("title").getValue().toString();
+        }
+        return title;
+    }
+
+    public Map<String, String> getSicTitleMap() {
+        SearchResponse response = this.client.prepareSearch(this.indexName)
+                .setTypes(SICTITLE_TYPE).addField("title").setQuery(matchAllQuery()).setSize(100000).get();
+        return Arrays.stream(response.getHits().getHits())
+                .collect(toMap(hit -> hit.getId(), hit -> hit.field("title").getValue()));
+    }
+
+    private void put(String type, Object document, String id) {
         try {
             String jsonDoc = ObjectMapperFactory.instance().writeValueAsString(document);
             ElasticsearchRequestExecutor.execute(this.client.prepareIndex(this.indexName, type, id).setSource(jsonDoc));
@@ -152,7 +281,7 @@ public class EcepIndex {
      * documents as values and the corresponding IDs as keys. The map may be empty but must not be
      * null.
      */
-    private <T extends Object> void addAll(String type, Map<String, T> documents) {
+    private <T extends Object> void putAll(String type, Map<String, T> documents) {
         if (documents.isEmpty()) {
             return; // do nothing on empty input to avoid the following ES exception.
         }
@@ -171,22 +300,6 @@ public class EcepIndex {
         } catch (IOException e) {
             LOGGER.error("Error bulk indexing documents  " + documents.keySet() + " of type \""
                     + type + "\"!", e);
-        }
-    }
-
-    private Company parseCompany(GetResponse response) {
-        return this.parseCompany(response.getSourceAsString());
-    }
-
-    private Company parseCompany(SearchHit hit) {
-        return this.parseCompany(hit.getSourceAsString());
-    }
-
-    private Company parseCompany(String source) {
-        try {
-            return ObjectMapperFactory.instance().readValue(source, Company.class);
-        } catch (IOException e) {
-            throw new EcepIndexException("Exception parsing company document from index!", e);
         }
     }
 

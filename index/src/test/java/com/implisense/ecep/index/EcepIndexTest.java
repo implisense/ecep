@@ -1,5 +1,6 @@
 package com.implisense.ecep.index;
 
+import com.google.common.collect.ImmutableMap;
 import com.implisense.ecep.index.model.Address;
 import com.implisense.ecep.index.model.Company;
 import com.implisense.ecep.index.model.ContentField;
@@ -14,12 +15,10 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
+import java.util.*;
 
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.hamcrest.core.IsNull.nullValue;
 import static org.junit.Assert.assertThat;
 
 public class EcepIndexTest {
@@ -40,7 +39,7 @@ public class EcepIndexTest {
         expected.setStatus("Active");
         expected.setCountryOfOrigin("United Kingdom");
         expected.setIncorporationDate(DATE_PARSER.parse("22/07/1999"));
-        index.addCompany(expected);
+        index.putCompany(expected);
         index.commit();
         Company actual = index.getCompany(expected.getId());
         assertThat(actual.getName(), equalTo(expected.getName()));
@@ -51,11 +50,28 @@ public class EcepIndexTest {
             company.setName("test " + i);
             companies.add(company);
         }
-        index.addCompanies(companies);
+        index.putCompanies(companies);
         index.commit();
         for (int i = 0; i < 10; i++) {
             assertThat(index.getCompany("" + (i + 1234567)).getName(), equalTo("test " + i));
         }
+    }
+
+    @Test
+    public void testSicTitleManagement() throws Exception {
+        index.clear();
+        Map<String, String> exampleTitles = ImmutableMap.of(
+                "4522", "Erection of roof covering & frames",
+                "41202", "Construction of domestic buildings",
+                "99999", "Dormant Company"
+        );
+        index.putSicTitles(exampleTitles);
+        index.commit();
+        for (Map.Entry<String, String> example : exampleTitles.entrySet()) {
+            assertThat(index.getSicTitle(example.getKey()), equalTo(example.getValue()));
+        }
+        assertThat(index.getSicTitle("123123123"), nullValue());
+        assertThat(new TreeMap<>(exampleTitles), equalTo(new TreeMap<>(index.getSicTitleMap())));
     }
 
     private static Client client;
@@ -80,6 +96,9 @@ public class EcepIndexTest {
         Assert.assertFalse(node.isClosed());
         client = node.client();
         index = new EcepIndex(client, INDEX_NAME);
+        index.setTestMode();
+        index.deleteIndex();
+        index.createIndex();
     }
 
     @AfterClass
