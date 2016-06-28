@@ -1,9 +1,6 @@
 package com.implisense.ecep.index;
 
-import com.google.common.collect.ImmutableMap;
-import com.implisense.ecep.index.model.Address;
-import com.implisense.ecep.index.model.Company;
-import com.implisense.ecep.index.model.ContentField;
+import com.implisense.ecep.index.model.*;
 import org.apache.commons.lang3.time.DateParser;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.elasticsearch.client.Client;
@@ -15,10 +12,16 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
+import java.util.stream.IntStream;
 
+import static java.util.stream.Collectors.toList;
+import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
+import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsEqual.equalTo;
-import static org.hamcrest.core.IsNull.nullValue;
 import static org.junit.Assert.assertThat;
 
 public class EcepIndexTest {
@@ -58,20 +61,54 @@ public class EcepIndexTest {
     }
 
     @Test
-    public void testSicTitleManagement() throws Exception {
-        index.clear();
-        Map<String, String> exampleTitles = ImmutableMap.of(
-                "4522", "Erection of roof covering & frames",
-                "41202", "Construction of domestic buildings",
-                "99999", "Dormant Company"
-        );
-        index.putSicTitles(exampleTitles);
-        index.commit();
-        for (Map.Entry<String, String> example : exampleTitles.entrySet()) {
-            assertThat(index.getSicTitle(example.getKey()), equalTo(example.getValue()));
+    public void testBasicSearchFunctionality() throws Exception {
+        for (int i = 0; i < 100; i++) {
+            Company company = new Company();
+            company.setId("" + (1000000 + i));
+            company.setName("Name" + i);
+            company.setAddress(new Address());
+            company.getAddress().setPostCode("A" + (i / 3));
+            company.setCategory(i % 3 == 0 ? "cat1" : "cat2");
+            company.setStatus("Active");
+            company.setSicCodes(IntStream.range(0, i / 25).mapToObj(j -> "01." + j).collect(toList()));
+//            System.out.printf("%s %s\n", company.getAddress().getPostCode(), company.getSicCodes());
+            index.putCompany(company);
         }
-        assertThat(index.getSicTitle("123123123"), nullValue());
-        assertThat(new TreeMap<>(exampleTitles), equalTo(new TreeMap<>(index.getSicTitleMap())));
+        index.commit();
+        index.loadGlobalCounts();
+        {
+            SearchResult result = index.search("", "", "", "");
+            assertThat(result.getNumHits(), is(100L));
+            assertThat(result.getItems(), hasSize(53));
+            for (SearchResultItem item : result.getItems()) {
+                // it was a matchAllQuery, so both counts have to be equal for each item
+                assertThat(item.getResult(), is(item.getTotal()));
+            }
+        }
+        {
+            SearchResult result = index.search("", "A32", "", "");
+            assertThat(result.getNumHits(), is(3L));
+            assertThat(result.getItems(), hasSize(3));
+            for (SearchResultItem item : result.getItems()) {
+                assertThat(item.getPostCode(), equalTo("A32"));
+                assertThat(item.getResult(), is(3L));
+                assertThat(item.getTotal(), is(3L));
+            }
+            // make sure the sic codes are unique
+            assertThat(result.getItems().stream().map(i -> i.getSicCode()).sorted().distinct().count(), is(3L));
+        }
+        {
+            SearchResult result = index.search("", "A33", "", "");
+            assertThat(result.getNumHits(), is(1L));
+            assertThat(result.getItems(), hasSize(3));
+            for (SearchResultItem item : result.getItems()) {
+                assertThat(item.getPostCode(), equalTo("A33"));
+                assertThat(item.getResult(), is(1L));
+                assertThat(item.getTotal(), is(1L));
+            }
+            // make sure the sic codes are unique
+            assertThat(result.getItems().stream().map(i -> i.getSicCode()).sorted().distinct().count(), is(3L));
+        }
     }
 
     private static Client client;

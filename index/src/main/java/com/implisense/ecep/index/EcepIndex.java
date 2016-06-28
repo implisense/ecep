@@ -4,6 +4,8 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.implisense.ecep.index.model.Company;
+import com.implisense.ecep.index.model.SearchResult;
+import com.implisense.ecep.index.model.SearchResultItem;
 import com.implisense.ecep.index.util.ElasticsearchRequestExecutor;
 import com.implisense.ecep.index.util.ObjectMapperFactory;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -20,9 +22,12 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
+import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.slf4j.Logger;
@@ -30,15 +35,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.terms;
 
 public class EcepIndex {
 
@@ -47,16 +51,16 @@ public class EcepIndex {
     private static final String INDEX_NAME = "ecep";
 
     private static final String COMPANY_TYPE = "company";
-    private static final String SICTITLE_TYPE = "sictitle";
 
     private Client client;
     private String indexName;
-    protected boolean testMode = false;
+    private boolean testMode = false;
+    private Map<String, Long> globalCounts;
 
     /**
      * Creates the ecep index DAO.
      *
-     * @param client    The elasticsearch client connection to use.
+     * @param client The elasticsearch client connection to use.
      */
     public EcepIndex(Client client) {
         this(client, INDEX_NAME);
@@ -71,6 +75,7 @@ public class EcepIndex {
     public EcepIndex(Client client, String indexName) {
         this.client = client;
         this.indexName = indexName;
+        this.loadGlobalCounts();
     }
 
     public Client getClient() {
@@ -90,7 +95,7 @@ public class EcepIndex {
     }
 
     public void createIndex() {
-        this.createIndex(COMPANY_TYPE, SICTITLE_TYPE);
+        this.createIndex(COMPANY_TYPE);
     }
 
     public void createIndex(String... types) {
@@ -162,17 +167,17 @@ public class EcepIndex {
      * If the type is provided, the query only matches documents of this type.
      *
      * @param query The documents to be deleted
-     * @param type Only documents of this type will be deleted (optional)
+     * @param type  Only documents of this type will be deleted (optional)
      */
     private void removeDocuments(QueryBuilder query, String type) {
         SearchRequestBuilder searchRequestBuilder = this.client.prepareSearch(indexName);
-        if(type != null) {
+        if (type != null) {
             searchRequestBuilder.setTypes(type);
         }
         TimeValue keepAlive = new TimeValue(1, TimeUnit.MINUTES);
         SearchResponse response = ElasticsearchRequestExecutor.execute(searchRequestBuilder
                 .setScroll(keepAlive).setQuery(query).addFields("_routing", "_parent").setSize(100));
-        while(response.getHits().getHits().length > 0) {
+        while (response.getHits().getHits().length > 0) {
             BulkRequestBuilder bulkRequestBuilder = this.client.prepareBulk();
             for (SearchHit hit : response.getHits()) {
                 DeleteRequestBuilder deleteRequest =
@@ -194,16 +199,20 @@ public class EcepIndex {
         this.client.prepareClearScroll().addScrollId(response.getScrollId()).get();
     }
 
-    public void commit() {
+    // only used in test
+    void commit() {
         this.client.admin().indices().refresh(new RefreshRequest(this.indexName)).actionGet();
     }
 
-    public void putCompany(Company company) {
+    // only used in test
+    void putCompany(Company company) {
         this.put(COMPANY_TYPE, company, company.getId());
     }
 
     public void putCompanies(Collection<Company> companies) {
         this.putAll(COMPANY_TYPE, companies.stream().collect(toMap(Company::getId, identity())));
+        this.commit();
+        this.loadGlobalCounts();
     }
 
     /**
@@ -226,10 +235,6 @@ public class EcepIndex {
         return this.parseCompany(response.getSourceAsString());
     }
 
-    private Company parseCompany(SearchHit hit) {
-        return this.parseCompany(hit.getSourceAsString());
-    }
-
     private Company parseCompany(String source) {
         try {
             return ObjectMapperFactory.instance().readValue(source, Company.class);
@@ -238,33 +243,61 @@ public class EcepIndex {
         }
     }
 
-    public void putSicTitles(Map<String, String> sicTitles) {
-        this.putAll(SICTITLE_TYPE, sicTitles.entrySet().stream()
-                .collect(toMap(e -> e.getKey(), e -> ImmutableMap.of("title", e.getValue()))));
-    }
-
-    /**
-     * Performs a GET request against ES. Returns <code>null</code>, if the requested SIC code title was
-     * not found.
-     *
-     * @param sicCode The SIC code
-     * @return The corresponding title or <code>null</code>, if not found
-     */
-    public String getSicTitle(String sicCode) {
-        String title = null;
-        GetResponse getResponse = this.client.prepareGet(this.indexName, SICTITLE_TYPE, sicCode)
-                .setFields("title").get();
-        if (getResponse.isExists()) {
-            title = getResponse.getField("title").getValue().toString();
+    // only used in tests
+    void loadGlobalCounts() {
+        SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
+                .setQuery(matchAllQuery())
+                .addAggregation(terms("postCode").size(10000).field("address.postCode").order(Terms.Order.term(true))
+                        .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
+                .setSize(0);
+        SearchResponse esResponse = esRequest.get();
+        Map<String, Long> globalCounts = new HashMap<>();
+        StringTerms postCodeAgg = esResponse.getAggregations().get("postCode");
+        for (Terms.Bucket postCodeBucket : postCodeAgg.getBuckets()) {
+            String bucketPostCode = postCodeBucket.getKeyAsString();
+            StringTerms sicCodeAgg = postCodeBucket.getAggregations().get("sicCode");
+            for (Terms.Bucket sicCodeBucket : sicCodeAgg.getBuckets()) {
+                String bucketSicCode = sicCodeBucket.getKeyAsString();
+                String globalKey = bucketPostCode + "\t" + bucketSicCode;
+                globalCounts.put(globalKey, sicCodeBucket.getDocCount());
+            }
         }
-        return title;
+        this.globalCounts = globalCounts;
     }
 
-    public Map<String, String> getSicTitleMap() {
-        SearchResponse response = this.client.prepareSearch(this.indexName)
-                .setTypes(SICTITLE_TYPE).addField("title").setQuery(matchAllQuery()).setSize(100000).get();
-        return Arrays.stream(response.getHits().getHits())
-                .collect(toMap(hit -> hit.getId(), hit -> hit.field("title").getValue()));
+    public SearchResult search(String query, String postCode, String sicCode, String category) {
+        BoolQueryBuilder boolQuery = boolQuery();
+        if (!isNullOrEmpty(query)) {
+            boolQuery.should(matchQuery("name.analyzed", query));
+        }
+        if (!isNullOrEmpty(postCode)) {
+            boolQuery.should(termQuery("address.postCode", postCode));
+        }
+        if (!isNullOrEmpty(sicCode)) {
+            boolQuery.should(termQuery("sicCodes", sicCode));
+        }
+        if (!isNullOrEmpty(category)) {
+            boolQuery.should(termQuery("category", category));
+        }
+        SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
+                .setQuery(boolQuery)
+                .addAggregation(terms("postCode").size(10000).field("address.postCode").order(Terms.Order.term(true))
+                        .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
+                .setSize(0);
+        SearchResponse esResponse = esRequest.get();
+        List<SearchResultItem> items = new ArrayList<>();
+        StringTerms postCodeAgg = esResponse.getAggregations().get("postCode");
+        for (Terms.Bucket postCodeBucket : postCodeAgg.getBuckets()) {
+            String bucketPostCode = postCodeBucket.getKeyAsString();
+            StringTerms sicCodeAgg = postCodeBucket.getAggregations().get("sicCode");
+            for (Terms.Bucket sicCodeBucket : sicCodeAgg.getBuckets()) {
+                String bucketSicCode = sicCodeBucket.getKeyAsString();
+                String globalKey = bucketPostCode + "\t" + bucketSicCode;
+                items.add(new SearchResultItem(bucketPostCode, bucketSicCode,
+                        sicCodeBucket.getDocCount(), this.globalCounts.get(globalKey)));
+            }
+        }
+        return new SearchResult(esResponse.getHits().getTotalHits(), items);
     }
 
     private void put(String type, Object document, String id) {
@@ -302,5 +335,4 @@ public class EcepIndex {
                     + type + "\"!", e);
         }
     }
-
 }
