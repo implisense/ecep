@@ -1,4 +1,4 @@
-package com.implisense.ecep.api.format;
+package com.implisense.ecep.api.data;
 
 public class CompaniesHouseParsingException extends RuntimeException {
     public CompaniesHouseParsingException() {

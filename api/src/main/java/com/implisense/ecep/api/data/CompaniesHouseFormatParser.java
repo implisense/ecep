@@ -1,6 +1,6 @@
-package com.implisense.ecep.api.format;
+package com.implisense.ecep.api.data;
 
-import com.implisense.ecep.api.util.SicTitleProvider;
+import com.google.common.collect.ImmutableList;
 import com.implisense.ecep.index.model.Address;
 import com.implisense.ecep.index.model.Company;
 import com.implisense.ecep.index.model.PreviousName;
@@ -8,6 +8,8 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.time.DateParser;
 import org.apache.commons.lang3.time.FastDateFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -28,15 +30,16 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 @Singleton
 public class CompaniesHouseFormatParser {
 
-    private SicTitleProvider sicTitleProvider;
+    private static final Logger LOGGER = LoggerFactory.getLogger(CompaniesHouseFormatParser.class);
+
+    private Sic03ToSic07Converter sic03ToSic07Converter;
 
     @Inject
-    public CompaniesHouseFormatParser(SicTitleProvider sicTitleProvider) {
-        this.sicTitleProvider = sicTitleProvider;
+    public CompaniesHouseFormatParser(Sic03ToSic07Converter sic03ToSic07Converter) {
+        this.sic03ToSic07Converter = sic03ToSic07Converter;
     }
 
     public Iterable<Company> iterateCompanies(byte[] input, Charset charset) {
-        this.sicTitleProvider.putAll(extractSicCodeTitleMap(input, charset));
         final Iterator<CSVRecord> records = buildReader(input, charset);
         final ColumnIndices idx = parseHeader(records.next());
         return new Iterable<Company>() {
@@ -82,17 +85,6 @@ public class CompaniesHouseFormatParser {
         private int PREVIOUSNAMESEND = -1;
     }
 
-    private static Map<String, String> extractSicCodeTitleMap(byte[] input, Charset charset) {
-        Iterator<CSVRecord> records = buildReader(input, charset);
-        final ColumnIndices idx = parseHeader(records.next());
-        Map<String, String> sicCodeTitleMap = new HashMap<>();
-        while (records.hasNext()) {
-            CSVRecord record = records.next();
-            addSicCodeTitlesToMap(record, idx, sicCodeTitleMap);
-        }
-        return sicCodeTitleMap;
-    }
-
     private static Iterator<CSVRecord> buildReader(byte[] input, Charset charset) {
         InputStream is;
         // make it a ZipInputStream if it is readable as such
@@ -116,16 +108,7 @@ public class CompaniesHouseFormatParser {
 
     private static final Pattern SIC_CODE_TITLE_PATTERN = Pattern.compile("^(\\d+) - (.+)$");
 
-    private static void addSicCodeTitlesToMap(CSVRecord record, ColumnIndices idx, Map<String, String> sicCodeTitleMap) {
-        for (int i = idx.SICCODESSTART; i < idx.SICCODESEND; i++) {
-            Matcher m = SIC_CODE_TITLE_PATTERN.matcher(record.get(i));
-            if (m.find()) {
-                sicCodeTitleMap.put(m.group(1), m.group(2));
-            }
-        }
-    }
-
-    private static Company parseLine(CSVRecord line, ColumnIndices idx) {
+    private Company parseLine(CSVRecord line, ColumnIndices idx) {
         Company company = new Company();
         company.setName(line.get(idx.NAME));
         company.setId(line.get(idx.NUMBER));
@@ -145,14 +128,17 @@ public class CompaniesHouseFormatParser {
         company.setIncorporationDate(parseDate(line.get(idx.INCORPORATIONDATE)));
         company.setDissolutionDate(parseDate(line.get(idx.DISSOLUTIONDATE)));
         company.setUri(line.get(idx.URI));
-        List<String> sicCodes = new ArrayList<>(idx.SICCODESEND - idx.SICCODESSTART);
+        Set<String> sicCodes = new LinkedHashSet<>(idx.SICCODESEND - idx.SICCODESSTART);
         for (int i = idx.SICCODESSTART; i < idx.SICCODESEND; i++) {
             Matcher m = SIC_CODE_TITLE_PATTERN.matcher(line.get(i));
             if (m.find()) {
-                sicCodes.add(m.group(1));
+                String code = normalizeSicCode(m.group(1));
+                if (code != null) {
+                    sicCodes.add(code);
+                }
             }
         }
-        company.setSicCodes(sicCodes);
+        company.setSicCodes(ImmutableList.copyOf(sicCodes));
         List<PreviousName> previousNames = new ArrayList<>(idx.PREVIOUSNAMESEND - idx.PREVIOUSNAMESSTART);
         for (int i = idx.PREVIOUSNAMESSTART; i < idx.PREVIOUSNAMESEND; i += 2) {
             Date changeDate = parseDate(line.get(i));
@@ -161,8 +147,22 @@ public class CompaniesHouseFormatParser {
                 previousNames.add(new PreviousName(changeDate, name));
             }
         }
-        company.setPreviousNames(previousNames);
+        company.setPreviousNames(ImmutableList.copyOf(previousNames));
         return company;
+    }
+
+    private String normalizeSicCode(String code) {
+        if (code.length() == 5) {
+            // we add the separating dot and strip the sub-class (level 5)
+            return code.substring(0, 2) + "." + code.substring(2, 4);
+        } else if (code.length() == 4) {
+            // we add the separating dot and convert sic03 to sic07
+            code = code.substring(0, 2) + "." + code.substring(2, 4);
+            return this.sic03ToSic07Converter.getSic07(code);
+        } else {
+            LOGGER.warn("Unexpected SIC code format: \"" + code + "\"");
+            return null;
+        }
     }
 
     private static final String DATE_PATTERN = "dd/MM/yyyy";

@@ -1,4 +1,4 @@
-package com.implisense.ecep.api.format;
+package com.implisense.ecep.api.data;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
@@ -40,8 +40,8 @@ public class CompaniesHouseFormatParserTest {
     public void testSampleFile() throws Exception {
         byte[] input = loadSampleFile();
 
-        SicTitleProvider sicTitleProvider = Mockito.mock(SicTitleProvider.class);
-        CompaniesHouseFormatParser parser = new CompaniesHouseFormatParser(sicTitleProvider);
+        Sic03ToSic07Converter sic03ToSic07Converter = new Sic03ToSic07Converter();
+        CompaniesHouseFormatParser parser = new CompaniesHouseFormatParser(sic03ToSic07Converter);
         List<Company> companies = Lists.newArrayList(parser.iterateCompanies(input, Charsets.US_ASCII));
         assertThat(companies, hasSize(3));
         {
@@ -61,7 +61,7 @@ public class CompaniesHouseFormatParserTest {
             assertThat(c.getCountryOfOrigin(), equalTo("United Kingdom"));
             assertThat(c.getDissolutionDate(), equalTo(DATE_PARSER.parse("2015-12-31")));
             assertThat(c.getIncorporationDate(), equalTo(DATE_PARSER.parse("2010-09-21")));
-            assertThat(c.getSicCodes(), equalTo(ImmutableList.of("59112", "59113", "74100", "74202")));
+            assertThat(c.getSicCodes(), equalTo(ImmutableList.of("59.11", "74.10", "74.20")));
             assertThat(c.getUri(), equalTo("http://business.data.gov.uk/id/company/07382019"));
             assertThat(c.getPreviousNames(), empty());
         }
@@ -82,7 +82,7 @@ public class CompaniesHouseFormatParserTest {
             assertThat(c.getCountryOfOrigin(), equalTo("United Kingdom"));
             assertThat(c.getDissolutionDate(), nullValue());
             assertThat(c.getIncorporationDate(), equalTo(DATE_PARSER.parse("2003-05-03")));
-            assertThat(c.getSicCodes(), equalTo(ImmutableList.of("82990")));
+            assertThat(c.getSicCodes(), equalTo(ImmutableList.of("82.99")));
             assertThat(c.getUri(), equalTo("http://business.data.gov.uk/id/company/04753368"));
             assertThat(c.getPreviousNames(), equalTo(ImmutableList.of(
                     new PreviousName(DATE_PARSER.parse("2009-01-27"), "DISTINCTIVE IMPRINT WORLDWIDE LIMITED"),
@@ -111,14 +111,6 @@ public class CompaniesHouseFormatParserTest {
             assertThat(c.getUri(), equalTo("http://business.data.gov.uk/id/company/FC027187"));
             assertThat(c.getPreviousNames(), empty());
         }
-        // verify the sicTitleProvider has received the sic code title mapping found in the file
-        verify(sicTitleProvider).putAll(Matchers.eq(ImmutableMap.of(
-                "74202", "Other specialist photography",
-                "59113", "Television programme production activities",
-                "82990", "Other business support service activities n.e.c.",
-                "59112", "Video production activities",
-                "74100", "specialised design activities"
-        )));
     }
 
     @Test
@@ -135,8 +127,8 @@ public class CompaniesHouseFormatParserTest {
         // now take the zipped bytes as input
         input = bos.toByteArray();
 
-        SicTitleProvider sicTitleProvider = Mockito.mock(SicTitleProvider.class);
-        CompaniesHouseFormatParser parser = new CompaniesHouseFormatParser(sicTitleProvider);
+        Sic03ToSic07Converter sic03ToSic07Converter = new Sic03ToSic07Converter();
+        CompaniesHouseFormatParser parser = new CompaniesHouseFormatParser(sic03ToSic07Converter);
         List<Company> companies = Lists.newArrayList(parser.iterateCompanies(input, Charsets.US_ASCII));
 
         // just check whether this worked at all.. :)
