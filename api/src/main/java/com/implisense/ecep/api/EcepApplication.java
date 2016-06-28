@@ -1,5 +1,6 @@
 package com.implisense.ecep.api;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.implisense.ecep.api.config.EcepConfig;
@@ -46,6 +47,9 @@ public class EcepApplication extends Application<EcepConfig> {
 
         // Create Guice injector
         Injector injector = Guice.createInjector(new EcepGuiceModule(configuration, environment));
+
+        // Configure the JSON mapper
+        environment.getObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
         // Enable multipart form uploads
         environment.jersey().register(MultiPartFeature.class);
