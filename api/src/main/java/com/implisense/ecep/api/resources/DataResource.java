@@ -1,15 +1,12 @@
 package com.implisense.ecep.api.resources;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
-import com.implisense.ecep.api.config.EcepConfig;
-import com.implisense.ecep.api.format.CompaniesHouseFormatParser;
-import com.implisense.ecep.api.format.CompaniesHouseParsingException;
+import com.implisense.ecep.api.data.CompaniesHouseFormatParser;
+import com.implisense.ecep.api.data.CompaniesHouseParsingException;
 import com.implisense.ecep.api.model.UploadResponse;
 import com.implisense.ecep.api.model.UploadResponseStatus;
 import com.implisense.ecep.api.model.exceptions.SimpleWebException;
 import com.implisense.ecep.api.model.exceptions.WebError;
-import com.implisense.ecep.api.util.SicTitleProvider;
 import com.implisense.ecep.index.EcepIndex;
 import com.implisense.ecep.index.model.Company;
 import org.glassfish.jersey.media.multipart.FormDataParam;
@@ -17,7 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.ws.rs.*;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import java.util.ArrayList;
 import java.util.List;
