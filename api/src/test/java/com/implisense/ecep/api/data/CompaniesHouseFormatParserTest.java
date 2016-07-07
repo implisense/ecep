@@ -2,17 +2,13 @@ package com.implisense.ecep.api.data;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
-import com.implisense.ecep.api.util.SicTitleProvider;
 import com.implisense.ecep.index.model.Company;
 import com.implisense.ecep.index.model.PreviousName;
 import org.apache.commons.lang3.time.DateParser;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.junit.Test;
-import org.mockito.Matchers;
-import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -28,7 +24,6 @@ import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsNull.nullValue;
-import static org.mockito.Mockito.verify;
 
 public class CompaniesHouseFormatParserTest {
 
