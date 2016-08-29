@@ -31,6 +31,7 @@ public class EcepGuiceModule extends AbstractModule {
     @Override
     protected void configure() {
         this.bind(EcepConfig.class).toInstance(this.configuration);
+        this.bind(ElasticsearchConfig.class).toInstance(this.configuration.getElasticsearch());
     }
 
     @Provides
