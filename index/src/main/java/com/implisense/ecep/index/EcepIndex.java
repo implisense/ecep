@@ -247,7 +247,7 @@ public class EcepIndex {
     void loadGlobalCounts() {
         SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
                 .setQuery(matchAllQuery())
-                .addAggregation(terms("postCode").size(10000).field("address.postCode").order(Terms.Order.term(true))
+                .addAggregation(terms("postCode").size(1000000).field("address.postCode").order(Terms.Order.term(true))
                         .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
                 .setSize(0);
         SearchResponse esResponse = esRequest.get();
@@ -268,20 +268,20 @@ public class EcepIndex {
     public SearchResult search(String query, String postCode, String sicCode, String category) {
         BoolQueryBuilder boolQuery = boolQuery();
         if (!isNullOrEmpty(query)) {
-            boolQuery.should(matchQuery("name.analyzed", query));
+            boolQuery.must(matchQuery("name.analyzed", query));
         }
         if (!isNullOrEmpty(postCode)) {
-            boolQuery.should(termQuery("address.postCode", postCode));
+            boolQuery.must(termQuery("address.postCode", postCode));
         }
         if (!isNullOrEmpty(sicCode)) {
-            boolQuery.should(termQuery("sicCodes", sicCode));
+            boolQuery.must(termQuery("sicCodes", sicCode));
         }
         if (!isNullOrEmpty(category)) {
-            boolQuery.should(termQuery("category", category));
+            boolQuery.must(termQuery("category", category));
         }
         SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
                 .setQuery(boolQuery)
-                .addAggregation(terms("postCode").size(10000).field("address.postCode").order(Terms.Order.term(true))
+                .addAggregation(terms("postCode").size(500000).field("address.postCode").order(Terms.Order.term(true))
                         .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
                 .setSize(0);
         SearchResponse esResponse = esRequest.get();
@@ -293,8 +293,13 @@ public class EcepIndex {
             for (Terms.Bucket sicCodeBucket : sicCodeAgg.getBuckets()) {
                 String bucketSicCode = sicCodeBucket.getKeyAsString();
                 String globalKey = bucketPostCode + "\t" + bucketSicCode;
+                Long globalCount = this.globalCounts.get(globalKey);
+                if(globalCount == null) {
+                    globalCount = -1L;
+                    LOGGER.warn("global count unknown for key: \"" + globalKey + "\"");
+                }
                 items.add(new SearchResultItem(bucketPostCode, bucketSicCode,
-                        sicCodeBucket.getDocCount(), this.globalCounts.get(globalKey)));
+                        sicCodeBucket.getDocCount(), globalCount));
             }
         }
         return new SearchResult(esResponse.getHits().getTotalHits(), items);
