@@ -27,8 +27,8 @@ public class DummyContentGenerator {
                 "gov", "uk"};
         Random random = new Random(42L);
         final int MAX_NUM_ROWS = 10000;
-        File inFile = new File("/home/hkorte/Projects/ECEP/BasicCompanyData-2016-06-01-part1_5.ids.txt");
-        File outFile = new File("/home/hkorte/Projects/ECEP/fake-content-10k.csv");
+        File inFile = new File("existing-ids-10k.txt");
+        File outFile = new File("fake-content-10k.csv");
         BufferedWriter writer = Files.newWriter(outFile, UTF_8);
         int i = 0;
         for (String id : Files.readLines(inFile, UTF_8)) {
