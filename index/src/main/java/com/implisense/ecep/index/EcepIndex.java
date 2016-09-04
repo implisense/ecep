@@ -1,7 +1,6 @@
 package com.implisense.ecep.index;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.implisense.ecep.index.model.Company;
 import com.implisense.ecep.index.model.SearchResult;
@@ -16,7 +15,7 @@ import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequestBuilder;
-import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.get.*;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
@@ -28,6 +27,7 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.fetch.source.FetchSourceContext;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.slf4j.Logger;
@@ -39,6 +39,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -199,20 +200,23 @@ public class EcepIndex {
         this.client.prepareClearScroll().addScrollId(response.getScrollId()).get();
     }
 
-    // only used in test
     void commit() {
         this.client.admin().indices().refresh(new RefreshRequest(this.indexName)).actionGet();
+        this.loadGlobalCounts();
     }
 
     // only used in test
     void putCompany(Company company) {
-        this.put(COMPANY_TYPE, company, company.getId());
+        if (this.testMode) {
+            this.put(COMPANY_TYPE, company, company.getId());
+        } else {
+            throw new UnsupportedOperationException("This method is not meant to be called in production!");
+        }
     }
 
     public void putCompanies(Collection<Company> companies) {
         this.putAll(COMPANY_TYPE, companies.stream().collect(toMap(Company::getId, identity())));
         this.commit();
-        this.loadGlobalCounts();
     }
 
     /**
@@ -231,6 +235,33 @@ public class EcepIndex {
         return company;
     }
 
+    /**
+     * Performs a multi-GET request against ES. Returns the list of matching <code>Company</code>
+     * objects in the same order as the ids in the provided list. In case of a non-matching ID, a
+     * <code>null</code> value is added at the corresponding position in the list. This way the
+     * returned list will always have the same size as the ids list.
+     *
+     * @param ids The company IDs
+     * @return A <code>List</code> of <code>Company</code> objects, which may be empty but never
+     * <code>null</code>.
+     */
+    public List<Company> getCompanies(List<String> ids) {
+        if (ids.isEmpty()) {
+            return emptyList();
+        }
+        List<Company> companies = new ArrayList<>(ids.size());
+        MultiGetResponse multiGetResponse = this.client.prepareMultiGet().add(this.indexName, COMPANY_TYPE, ids).get();
+        for (MultiGetItemResponse itemResponse : multiGetResponse.getResponses()) {
+            GetResponse response = itemResponse.getResponse();
+            if (response != null && response.isExists()) {
+                companies.add(this.parseCompany(response));
+            } else {
+                companies.add(null); // to keep the order
+            }
+        }
+        return companies;
+    }
+
     private Company parseCompany(GetResponse response) {
         return this.parseCompany(response.getSourceAsString());
     }
@@ -243,23 +274,24 @@ public class EcepIndex {
         }
     }
 
-    // only used in tests
-    void loadGlobalCounts() {
-        SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
-                .setQuery(matchAllQuery())
-                .addAggregation(terms("postCode").size(1000000).field("address.postCode").order(Terms.Order.term(true))
-                        .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
-                .setSize(0);
-        SearchResponse esResponse = esRequest.get();
+    private void loadGlobalCounts() {
         Map<String, Long> globalCounts = new HashMap<>();
-        StringTerms postCodeAgg = esResponse.getAggregations().get("postCode");
-        for (Terms.Bucket postCodeBucket : postCodeAgg.getBuckets()) {
-            String bucketPostCode = postCodeBucket.getKeyAsString();
-            StringTerms sicCodeAgg = postCodeBucket.getAggregations().get("sicCode");
-            for (Terms.Bucket sicCodeBucket : sicCodeAgg.getBuckets()) {
-                String bucketSicCode = sicCodeBucket.getKeyAsString();
-                String globalKey = bucketPostCode + "\t" + bucketSicCode;
-                globalCounts.put(globalKey, sicCodeBucket.getDocCount());
+        if (this.client.admin().indices().exists(new IndicesExistsRequest(this.indexName)).actionGet().isExists()) {
+            SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
+                    .setQuery(matchAllQuery())
+                    .addAggregation(terms("postCode").size(1000000).field("address.postCode").order(Terms.Order.term(true))
+                            .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
+                    .setSize(0);
+            SearchResponse esResponse = esRequest.get();
+            StringTerms postCodeAgg = esResponse.getAggregations().get("postCode");
+            for (Terms.Bucket postCodeBucket : postCodeAgg.getBuckets()) {
+                String bucketPostCode = postCodeBucket.getKeyAsString();
+                StringTerms sicCodeAgg = postCodeBucket.getAggregations().get("sicCode");
+                for (Terms.Bucket sicCodeBucket : sicCodeAgg.getBuckets()) {
+                    String bucketSicCode = sicCodeBucket.getKeyAsString();
+                    String globalKey = bucketPostCode + "\t" + bucketSicCode;
+                    globalCounts.put(globalKey, sicCodeBucket.getDocCount());
+                }
             }
         }
         this.globalCounts = globalCounts;
@@ -294,7 +326,7 @@ public class EcepIndex {
                 String bucketSicCode = sicCodeBucket.getKeyAsString();
                 String globalKey = bucketPostCode + "\t" + bucketSicCode;
                 Long globalCount = this.globalCounts.get(globalKey);
-                if(globalCount == null) {
+                if (globalCount == null) {
                     globalCount = -1L;
                     LOGGER.warn("global count unknown for key: \"" + globalKey + "\"");
                 }

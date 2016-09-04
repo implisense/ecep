@@ -75,7 +75,6 @@ public class EcepIndexTest {
             index.putCompany(company);
         }
         index.commit();
-        index.loadGlobalCounts();
         {
             SearchResult result = index.search("", "", "", "");
             assertThat(result.getNumHits(), is(100L));
