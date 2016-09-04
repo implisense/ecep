@@ -300,7 +300,11 @@ public class EcepIndex {
     public SearchResult search(String query, String postCode, String sicCode, String category) {
         BoolQueryBuilder boolQuery = boolQuery();
         if (!isNullOrEmpty(query)) {
-            boolQuery.must(matchQuery("name.analyzed", query));
+            // The query must match either the name or the content field
+            boolQuery.must(boolQuery()
+                    .should(matchQuery("name.analyzed", query))
+                    .should(matchQuery("content.general", query))
+                    .minimumNumberShouldMatch(1));
         }
         if (!isNullOrEmpty(postCode)) {
             boolQuery.must(termQuery("address.postCode", postCode));
