@@ -346,8 +346,8 @@ public class EcepIndex {
         if (!isNullOrEmpty(query)) {
             // The query must match either the name or the content field
             boolQuery.must(boolQuery()
-                    .should(matchQuery("name.analyzed", query))
-                    .should(matchQuery("content.general", query))
+                    .should(simpleQueryStringQuery(query).field("name.analyzed"))
+                    .should(simpleQueryStringQuery(query).field("content.general"))
                     .minimumNumberShouldMatch(1));
         }
         if (!isNullOrEmpty(postCode)) {
