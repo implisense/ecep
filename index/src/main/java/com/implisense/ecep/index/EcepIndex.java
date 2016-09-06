@@ -15,7 +15,9 @@ import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequestBuilder;
-import org.elasticsearch.action.get.*;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.get.MultiGetItemResponse;
+import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
@@ -27,7 +29,6 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.fetch.source.FetchSourceContext;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.slf4j.Logger;
@@ -41,7 +42,9 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.terms;
 
@@ -212,11 +215,36 @@ public class EcepIndex {
         } else {
             throw new UnsupportedOperationException("This method is not meant to be called in production!");
         }
+        markWrite();
     }
 
     public void putCompanies(Collection<Company> companies) {
         this.putAll(COMPANY_TYPE, companies.stream().collect(toMap(Company::getId, identity())));
-        this.commit();
+        markWrite();
+    }
+
+    public void putUrlsWithContent(String[][] idUrlContentArray) {
+        try {
+            BulkRequestBuilder bulkRequest = client.prepareBulk();
+            for (String[] row : idUrlContentArray) {
+                bulkRequest.add(client.prepareUpdate(this.indexName, COMPANY_TYPE, row[0])
+                        .setDoc(jsonBuilder().startObject()
+                                .field("url", row[1])
+                                .startObject("content").field("general", row[2]).endObject()
+                                .endObject()));
+            }
+            BulkResponse bulkResponse = ElasticsearchRequestExecutor.execute(bulkRequest);
+            if (bulkResponse.hasFailures()) {
+                LOGGER.error("Error bulk updating documents  " +
+                        Arrays.stream(idUrlContentArray).map(r -> r[0]).collect(toList())
+                        + " of type \"" + COMPANY_TYPE + "\": " + bulkResponse.buildFailureMessage());
+            }
+        } catch (IOException e) {
+            LOGGER.error("Exception bulk updating documents  " +
+                    Arrays.stream(idUrlContentArray).map(r -> r[0]).collect(toList())
+                    + " of type \"" + COMPANY_TYPE + "\"!", e);
+        }
+        markWrite();
     }
 
     /**
@@ -297,7 +325,23 @@ public class EcepIndex {
         this.globalCounts = globalCounts;
     }
 
+    private long lastWrite = 0L;
+    private long lastRefresh = 0L;
+
+    private void markWrite() {
+        lastWrite = System.currentTimeMillis();
+    }
+
+    public void refresh() {
+        if (lastRefresh < lastWrite) {
+            lastRefresh = System.currentTimeMillis();
+            LOGGER.info("Rebuilding stats...");
+            this.loadGlobalCounts();
+        }
+    }
+
     public SearchResult search(String query, String postCode, String sicCode, String category) {
+        this.refresh();
         BoolQueryBuilder boolQuery = boolQuery();
         if (!isNullOrEmpty(query)) {
             // The query must match either the name or the content field
@@ -348,6 +392,7 @@ public class EcepIndex {
         } catch (IOException e) {
             LOGGER.error("Error indexing document \"" + id + "\" of type \"" + type + "\"!", e);
         }
+        markWrite();
     }
 
     /**
@@ -375,5 +420,6 @@ public class EcepIndex {
             LOGGER.error("Error bulk indexing documents  " + documents.keySet() + " of type \""
                     + type + "\"!", e);
         }
+        markWrite();
     }
 }
