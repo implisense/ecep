@@ -55,9 +55,26 @@
             "index": "not_analyzed",
             "type": "string"
           },
-          "postCode": {
+          "postcode": {
             "index": "not_analyzed",
             "type": "string"
+          },
+          "postcodeData": {
+            "properties": {
+              "coordinates": {
+                "type": "geo_point"
+              },
+              "population": {
+                "type": "integer"
+              },
+              "households": {
+                "type": "integer"
+              },
+              "urbanity": {
+                "index": "not_analyzed",
+                "type": "string"
+              }
+            }
           }
         }
       },

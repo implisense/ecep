@@ -8,7 +8,8 @@ public class Address {
     private String town;
     private String county;
     private String country;
-    private String postCode;
+    private String postcode;
+    private PostcodeData postcodeData;
 
     public Address() {
     }
@@ -69,11 +70,19 @@ public class Address {
         this.country = country;
     }
 
-    public String getPostCode() {
-        return postCode;
+    public String getPostcode() {
+        return postcode;
     }
 
-    public void setPostCode(String postCode) {
-        this.postCode = postCode;
+    public void setPostcode(String postcode) {
+        this.postcode = postcode;
+    }
+
+    public PostcodeData getPostcodeData() {
+        return postcodeData;
+    }
+
+    public void setPostcodeData(PostcodeData postcodeData) {
+        this.postcodeData = postcodeData;
     }
 }

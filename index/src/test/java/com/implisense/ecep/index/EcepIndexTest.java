@@ -67,11 +67,11 @@ public class EcepIndexTest {
             company.setId("" + (1000000 + i));
             company.setName("Name" + i);
             company.setAddress(new Address());
-            company.getAddress().setPostCode("A" + (i / 3));
+            company.getAddress().setPostcode("A" + (i / 3));
             company.setCategory(i % 3 == 0 ? "cat1" : "cat2");
             company.setStatus("Active");
             company.setSicCodes(IntStream.range(0, i / 25).mapToObj(j -> "01." + j).collect(toList()));
-//            System.out.printf("%s %s\n", company.getAddress().getPostCode(), company.getSicCodes());
+//            System.out.printf("%s %s\n", company.getAddress().getPostcode(), company.getSicCodes());
             index.putCompany(company);
         }
         index.commit();
