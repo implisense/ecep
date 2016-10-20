@@ -50,7 +50,7 @@ public class CompaniesHouseFormatParserTest {
             assertThat(c.getAddress().getTown(), equalTo("LONDON"));
             assertThat(c.getAddress().getCounty(), equalTo(""));
             assertThat(c.getAddress().getCountry(), equalTo(""));
-            assertThat(c.getAddress().getPostCode(), equalTo("DW3N 6BV"));
+            assertThat(c.getAddress().getPostcode(), equalTo("DW3N 6BV"));
             assertThat(c.getCategory(), equalTo("Private Limited Company"));
             assertThat(c.getStatus(), equalTo("Active"));
             assertThat(c.getCountryOfOrigin(), equalTo("United Kingdom"));
@@ -71,7 +71,7 @@ public class CompaniesHouseFormatParserTest {
             assertThat(c.getAddress().getTown(), equalTo("LONDON"));
             assertThat(c.getAddress().getCounty(), equalTo(""));
             assertThat(c.getAddress().getCountry(), equalTo(""));
-            assertThat(c.getAddress().getPostCode(), equalTo("WF2N 4HB\\"));
+            assertThat(c.getAddress().getPostcode(), equalTo("WF2N 4HB\\"));
             assertThat(c.getCategory(), equalTo("Private Limited Company"));
             assertThat(c.getStatus(), equalTo("Active"));
             assertThat(c.getCountryOfOrigin(), equalTo("United Kingdom"));
@@ -96,7 +96,7 @@ public class CompaniesHouseFormatParserTest {
             assertThat(c.getAddress().getTown(), equalTo("KHAN-UUL DISTRICT"));
             assertThat(c.getAddress().getCounty(), equalTo("ULAANBAATAR, MONGOLIA"));
             assertThat(c.getAddress().getCountry(), equalTo("MONGOLIA"));
-            assertThat(c.getAddress().getPostCode(), equalTo(""));
+            assertThat(c.getAddress().getPostcode(), equalTo(""));
             assertThat(c.getCategory(), equalTo("Other company type"));
             assertThat(c.getStatus(), equalTo("Active"));
             assertThat(c.getCountryOfOrigin(), equalTo("MONGOLIA"));

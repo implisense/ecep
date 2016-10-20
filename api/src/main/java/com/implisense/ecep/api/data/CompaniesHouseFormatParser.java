@@ -120,7 +120,7 @@ public class CompaniesHouseFormatParser {
         address.setTown(line.get(idx.ADDR_TOWN));
         address.setCounty(line.get(idx.ADDR_COUNTY));
         address.setCountry(line.get(idx.ADDR_COUNTRY));
-        address.setPostCode(line.get(idx.ADDR_POSTCODE));
+        address.setPostcode(line.get(idx.ADDR_POSTCODE));
         company.setAddress(address);
         company.setCategory(line.get(idx.CATEGORY));
         company.setStatus(line.get(idx.STATUS));

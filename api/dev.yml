@@ -22,3 +22,8 @@ elasticsearch:
 #  host: localhost
   port: 9300
   cluster: ecep
+
+# The geocoder adds coordinates to the company addresses based on the postal code.
+# The needed source file can be downloaded from: http://www.doogal.co.uk/files/postcodes.zip (~60MB).
+geocoder:
+  source: postcodes.zip

@@ -3,6 +3,8 @@ package com.implisense.ecep.api.resources;
 import com.google.common.base.Charsets;
 import com.implisense.ecep.api.data.CompaniesHouseFormatParser;
 import com.implisense.ecep.api.data.CompaniesHouseParsingException;
+import com.implisense.ecep.api.data.Geocoder;
+import com.implisense.ecep.api.data.PostcodeData;
 import com.implisense.ecep.api.model.UploadResponse;
 import com.implisense.ecep.api.model.UploadResponseStatus;
 import com.implisense.ecep.api.model.exceptions.SimpleWebException;
@@ -10,6 +12,7 @@ import com.implisense.ecep.api.model.exceptions.WebError;
 import com.implisense.ecep.index.EcepIndex;
 import com.implisense.ecep.index.EcepIndexException;
 import com.implisense.ecep.index.model.Company;
+import com.implisense.ecep.index.model.Coordinates;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,11 +37,13 @@ public class DataResource {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataResource.class);
     private final EcepIndex ecepIndex;
     private final CompaniesHouseFormatParser companiesHouseFormatParser;
+    private final Geocoder geocoder;
 
     @Inject
-    public DataResource(EcepIndex ecepIndex, CompaniesHouseFormatParser companiesHouseFormatParser) {
+    public DataResource(EcepIndex ecepIndex, CompaniesHouseFormatParser companiesHouseFormatParser, Geocoder geocoder) {
         this.ecepIndex = ecepIndex;
         this.companiesHouseFormatParser = companiesHouseFormatParser;
+        this.geocoder = geocoder;
     }
 
     @POST
@@ -63,6 +68,19 @@ public class DataResource {
             int numImported = 0;
             List<Company> bulk = new ArrayList<>(BULK_SIZE);
             for (Company company : companiesHouseFormatParser.iterateCompanies(input, Charsets.US_ASCII)) {
+                PostcodeData postcodeData = this.geocoder.lookup(company.getAddress().getPostcode());
+                if (postcodeData != null) {
+                    Coordinates coordinates = null;
+                    if (postcodeData.getLat() != null && postcodeData.getLon() != null) {
+                        coordinates = new Coordinates(postcodeData.getLat(), postcodeData.getLon());
+                    }
+                    company.getAddress().setPostcodeData(new com.implisense.ecep.index.model.PostcodeData(
+                            coordinates,
+                            postcodeData.getPopulation(),
+                            postcodeData.getHouseholds(),
+                            postcodeData.getUrbanity()
+                    ));
+                }
                 bulk.add(company);
                 if (bulk.size() == BULK_SIZE) {
                     numImported += bulk.size();
