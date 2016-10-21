@@ -2,8 +2,11 @@ package com.implisense.ecep.api.data;
 
 import com.implisense.ecep.api.config.GeocoderConfig;
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -13,25 +16,36 @@ import java.util.zip.ZipInputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+@Singleton
 public class Geocoder {
-    private final Map<String, PostcodeData> postcodeMap;
+    private final String postcodeMapSourceFile;
+    private Map<String, PostcodeData> postcodeMap;
 
+    @Inject
     public Geocoder(GeocoderConfig config) {
-        this.postcodeMap = buildMapping(config);
+        this.postcodeMapSourceFile = config.getSource();
+        this.postcodeMap = null;
+    }
+
+    public void init() {
+        if (this.postcodeMap == null) {
+            this.postcodeMap = this.buildMapping();
+        }
     }
 
     public PostcodeData lookup(String postcode) {
         return this.postcodeMap.get(postcode);
     }
 
-    private Map<String, PostcodeData> buildMapping(GeocoderConfig config) {
-        String source = config.getSource();
+    private Map<String, PostcodeData> buildMapping() {
+        String source = this.postcodeMapSourceFile;
         Map<String, PostcodeData> map = new HashMap<>();
         try (ZipInputStream zis = new ZipInputStream(new FileInputStream(source))) {
             if (zis.getNextEntry() == null) {
                 throw new IllegalArgumentException("Geocoder source \"" + source + "\" does not contain entries!");
             }
-            for (CSVRecord record : CSVFormat.RFC4180.parse(new InputStreamReader(zis, UTF_8))) {
+            CSVParser records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new InputStreamReader(zis, UTF_8));
+            for (CSVRecord record : records) {
                 map.put(record.get(0),
                         new PostcodeData(
                                 Double.parseDouble(record.get(2)),

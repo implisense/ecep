@@ -63,6 +63,7 @@ public class DataResource {
     }
 
     private UploadResponse importCompanies(byte[] input) {
+        this.geocoder.init();
         final int BULK_SIZE = 1000;
         try {
             int numImported = 0;

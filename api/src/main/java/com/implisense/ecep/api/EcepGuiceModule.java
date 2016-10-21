@@ -5,6 +5,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.implisense.ecep.api.config.EcepConfig;
 import com.implisense.ecep.api.config.ElasticsearchConfig;
+import com.implisense.ecep.api.config.GeocoderConfig;
 import com.implisense.ecep.index.EcepIndex;
 import com.implisense.ecep.index.util.ObjectMapperFactory;
 import io.dropwizard.setup.Environment;
@@ -32,6 +33,7 @@ public class EcepGuiceModule extends AbstractModule {
     protected void configure() {
         this.bind(EcepConfig.class).toInstance(this.configuration);
         this.bind(ElasticsearchConfig.class).toInstance(this.configuration.getElasticsearch());
+        this.bind(GeocoderConfig.class).toInstance(this.configuration.getGeocoder());
     }
 
     @Provides
