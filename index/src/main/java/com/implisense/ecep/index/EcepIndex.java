@@ -307,14 +307,14 @@ public class EcepIndex {
         if (this.client.admin().indices().exists(new IndicesExistsRequest(this.indexName)).actionGet().isExists()) {
             SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
                     .setQuery(matchAllQuery())
-                    .addAggregation(terms("postCode").size(1000000).field("address.postCode").order(Terms.Order.term(true))
+                    .addAggregation(terms("postcode").size(1000000).field("address.postcode").order(Terms.Order.term(true))
                             .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
                     .setSize(0);
             SearchResponse esResponse = esRequest.get();
-            StringTerms postCodeAgg = esResponse.getAggregations().get("postCode");
-            for (Terms.Bucket postCodeBucket : postCodeAgg.getBuckets()) {
-                String bucketPostCode = postCodeBucket.getKeyAsString();
-                StringTerms sicCodeAgg = postCodeBucket.getAggregations().get("sicCode");
+            StringTerms postcodeAgg = esResponse.getAggregations().get("postcode");
+            for (Terms.Bucket postcodeBucket : postcodeAgg.getBuckets()) {
+                String bucketPostCode = postcodeBucket.getKeyAsString();
+                StringTerms sicCodeAgg = postcodeBucket.getAggregations().get("sicCode");
                 for (Terms.Bucket sicCodeBucket : sicCodeAgg.getBuckets()) {
                     String bucketSicCode = sicCodeBucket.getKeyAsString();
                     String globalKey = bucketPostCode + "\t" + bucketSicCode;
@@ -340,7 +340,7 @@ public class EcepIndex {
         }
     }
 
-    public SearchResult search(String query, String postCode, String sicCode, String category) {
+    public SearchResult search(String query, String postcode, String sicCode, String category) {
         this.refresh();
         BoolQueryBuilder boolQuery = boolQuery();
         if (!isNullOrEmpty(query)) {
@@ -350,8 +350,8 @@ public class EcepIndex {
                     .should(simpleQueryStringQuery(query).field("content.general"))
                     .minimumNumberShouldMatch(1));
         }
-        if (!isNullOrEmpty(postCode)) {
-            boolQuery.must(termQuery("address.postCode", postCode));
+        if (!isNullOrEmpty(postcode)) {
+            boolQuery.must(termQuery("address.postcode", postcode));
         }
         if (!isNullOrEmpty(sicCode)) {
             boolQuery.must(termQuery("sicCodes", sicCode));
@@ -361,15 +361,15 @@ public class EcepIndex {
         }
         SearchRequestBuilder esRequest = this.client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
                 .setQuery(boolQuery)
-                .addAggregation(terms("postCode").size(500000).field("address.postCode").order(Terms.Order.term(true))
+                .addAggregation(terms("postcode").size(500000).field("address.postcode").order(Terms.Order.term(true))
                         .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
                 .setSize(0);
         SearchResponse esResponse = esRequest.get();
         List<SearchResultItem> items = new ArrayList<>();
-        StringTerms postCodeAgg = esResponse.getAggregations().get("postCode");
-        for (Terms.Bucket postCodeBucket : postCodeAgg.getBuckets()) {
-            String bucketPostCode = postCodeBucket.getKeyAsString();
-            StringTerms sicCodeAgg = postCodeBucket.getAggregations().get("sicCode");
+        StringTerms postcodeAgg = esResponse.getAggregations().get("postcode");
+        for (Terms.Bucket postcodeBucket : postcodeAgg.getBuckets()) {
+            String bucketPostCode = postcodeBucket.getKeyAsString();
+            StringTerms sicCodeAgg = postcodeBucket.getAggregations().get("sicCode");
             for (Terms.Bucket sicCodeBucket : sicCodeAgg.getBuckets()) {
                 String bucketSicCode = sicCodeBucket.getKeyAsString();
                 String globalKey = bucketPostCode + "\t" + bucketSicCode;
