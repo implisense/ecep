@@ -13,9 +13,7 @@ import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequestBuilder;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.get.MultiGetItemResponse;
-import org.elasticsearch.action.get.MultiGetResponse;
+import org.elasticsearch.action.get.*;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
@@ -43,6 +41,7 @@ import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.significantTerms;
@@ -225,13 +224,20 @@ public class EcepIndex {
 
     public void putUrlsWithContent(String[][] idUrlContentArray) {
         try {
+            List<String> ids = Arrays.stream(idUrlContentArray).map(row -> row[0]).collect(toList());
+            Set<String> existingIds = Arrays.stream(client.prepareSearch(this.indexName).setTypes(COMPANY_TYPE)
+                    .setNoFields().setSize(ids.size())
+                    .setQuery(idsQuery(COMPANY_TYPE).ids(ids)).get().getHits().getHits())
+                    .map(SearchHit::getId).collect(toSet());
             BulkRequestBuilder bulkRequest = client.prepareBulk();
             for (String[] row : idUrlContentArray) {
-                bulkRequest.add(client.prepareUpdate(this.indexName, COMPANY_TYPE, row[0])
-                        .setDoc(jsonBuilder().startObject()
-                                .field("url", row[1])
-                                .startObject("content").field("general", row[2]).endObject()
-                                .endObject()));
+                if(existingIds.contains(row[0])) {
+                    bulkRequest.add(client.prepareUpdate(this.indexName, COMPANY_TYPE, row[0])
+                            .setDoc(jsonBuilder().startObject()
+                                    .field("url", row[1])
+                                    .startObject("content").field("general", row[2]).endObject()
+                                    .endObject()));
+                }
             }
             BulkResponse bulkResponse = ElasticsearchRequestExecutor.execute(bulkRequest);
             if (bulkResponse.hasFailures()) {
