@@ -2,9 +2,7 @@ package com.implisense.ecep.index;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import com.implisense.ecep.index.model.Company;
-import com.implisense.ecep.index.model.SearchResult;
-import com.implisense.ecep.index.model.SearchResultItem;
+import com.implisense.ecep.index.model.*;
 import com.implisense.ecep.index.util.ElasticsearchRequestExecutor;
 import com.implisense.ecep.index.util.ObjectMapperFactory;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -27,6 +25,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
+import org.elasticsearch.search.aggregations.bucket.significant.SignificantStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.joda.time.DateTimeZone;
@@ -46,6 +45,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.elasticsearch.search.aggregations.AggregationBuilders.significantTerms;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.terms;
 
 public class EcepIndex {
@@ -363,6 +363,8 @@ public class EcepIndex {
                 .setQuery(boolQuery)
                 .addAggregation(terms("postcode").size(500000).field("address.postcode").order(Terms.Order.term(true))
                         .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
+                .addAggregation(terms("postcodeAbs").size(1100).field("address.postcode").order(Terms.Order.count(false)))
+                .addAggregation(significantTerms("postcodeRel").size(1100).field("address.postcode"))
                 .setSize(0);
         SearchResponse esResponse = esRequest.get();
         List<SearchResultItem> items = new ArrayList<>();
@@ -382,7 +384,16 @@ public class EcepIndex {
                         sicCodeBucket.getDocCount(), globalCount));
             }
         }
-        return new SearchResult(esResponse.getHits().getTotalHits(), items);
+        List<PostcodeBucket> postcodesAbs = ((StringTerms) esResponse.getAggregations().get("postcodeAbs"))
+                .getBuckets().stream()
+                .map(b -> new PostcodeBucket(b.getDocCount(), b.getKeyAsString()))
+                .collect(toList());
+        List<PostcodeBucket> postcodesRel = ((SignificantStringTerms) esResponse.getAggregations().get("postcodeRel"))
+                .getBuckets().stream()
+                .map(b -> new PostcodeBucket(b.getSignificanceScore(), b.getKeyAsString()))
+                .collect(toList());
+        PostcodeStats postcodeStats = new PostcodeStats(postcodesAbs, postcodesRel);
+        return new SearchResult(esResponse.getHits().getTotalHits(), items, postcodeStats);
     }
 
     private void put(String type, Object document, String id) {
