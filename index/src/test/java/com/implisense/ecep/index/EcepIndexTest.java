@@ -89,7 +89,7 @@ public class EcepIndexTest {
             assertThat(result.getNumHits(), is(3L));
             assertThat(result.getItems(), hasSize(3));
             for (SearchResultItem item : result.getItems()) {
-                assertThat(item.getPostCode(), equalTo("A32"));
+                assertThat(item.getPostcode(), equalTo("A32"));
                 assertThat(item.getResult(), is(3L));
                 assertThat(item.getTotal(), is(3L));
             }
@@ -101,7 +101,7 @@ public class EcepIndexTest {
             assertThat(result.getNumHits(), is(1L));
             assertThat(result.getItems(), hasSize(3));
             for (SearchResultItem item : result.getItems()) {
-                assertThat(item.getPostCode(), equalTo("A33"));
+                assertThat(item.getPostcode(), equalTo("A33"));
                 assertThat(item.getResult(), is(1L));
                 assertThat(item.getTotal(), is(1L));
             }

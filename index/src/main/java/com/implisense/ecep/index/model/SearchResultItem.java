@@ -1,24 +1,24 @@
 package com.implisense.ecep.index.model;
 
 public class SearchResultItem {
-    private String postCode;
+    private String postcode;
     private String sicCode;
     private long result;
     private long total;
 
-    public SearchResultItem(String postCode, String sicCode, long result, long total) {
-        this.postCode = postCode;
+    public SearchResultItem(String postcode, String sicCode, long result, long total) {
+        this.postcode = postcode;
         this.sicCode = sicCode;
         this.result = result;
         this.total = total;
     }
 
-    public String getPostCode() {
-        return postCode;
+    public String getPostcode() {
+        return postcode;
     }
 
-    public void setPostCode(String postCode) {
-        this.postCode = postCode;
+    public void setPostcode(String postcode) {
+        this.postcode = postcode;
     }
 
     public String getSicCode() {
@@ -48,7 +48,7 @@ public class SearchResultItem {
     @Override
     public String toString() {
         return "SearchResultItem{" +
-                "postCode='" + postCode + '\'' +
+                "postcode='" + postcode + '\'' +
                 ", sicCode='" + sicCode + '\'' +
                 ", result=" + result +
                 ", total=" + total +
