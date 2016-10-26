@@ -371,7 +371,7 @@ public class EcepIndex {
                         .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
                 .addAggregation(terms("postcodeAbs").size(1100).field("address.postcode").order(Terms.Order.count(false)))
                 .addAggregation(significantTerms("postcodeRel").size(1100).field("address.postcode"))
-                .addAggregation(significantTerms("significantTerms").size(100).field("content.general"))
+                .addAggregation(significantTerms("correlatedTerms").size(100).field("content.general"))
                 .setSize(0);
         SearchResponse esResponse = esRequest.get();
         List<SearchResultItem> items = new ArrayList<>();
@@ -400,11 +400,11 @@ public class EcepIndex {
                 .map(b -> new PostcodeBucket(b.getSignificanceScore(), b.getKeyAsString()))
                 .collect(toList());
         PostcodeStats postcodeStats = new PostcodeStats(postcodesAbs, postcodesRel);
-        List<String> significantTerms = ((SignificantStringTerms) esResponse.getAggregations().get("significantTerms"))
+        List<String> correlatedTerms = ((SignificantStringTerms) esResponse.getAggregations().get("correlatedTerms"))
                 .getBuckets().stream()
                 .map(b -> b.getKeyAsString())
                 .collect(toList());
-        return new SearchResult(esResponse.getHits().getTotalHits(), items, postcodeStats, significantTerms);
+        return new SearchResult(esResponse.getHits().getTotalHits(), items, postcodeStats, correlatedTerms);
     }
 
     private void put(String type, Object document, String id) {

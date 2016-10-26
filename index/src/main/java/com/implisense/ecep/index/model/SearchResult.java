@@ -6,16 +6,16 @@ public class SearchResult {
     private long numHits;
     private List<SearchResultItem> items;
     private PostcodeStats postcodeStats;
-    private List<String> significantTerms;
+    private List<String> correlatedTerms;
 
     public SearchResult() {
     }
 
-    public SearchResult(long numHits, List<SearchResultItem> items, PostcodeStats postcodeStats, List<String> significantTerms) {
+    public SearchResult(long numHits, List<SearchResultItem> items, PostcodeStats postcodeStats, List<String> correlatedTerms) {
         this.numHits = numHits;
         this.items = items;
         this.postcodeStats = postcodeStats;
-        this.significantTerms = significantTerms;
+        this.correlatedTerms = correlatedTerms;
     }
 
     public long getNumHits() {
@@ -42,11 +42,11 @@ public class SearchResult {
         this.postcodeStats = postcodeStats;
     }
 
-    public List<String> getSignificantTerms() {
-        return significantTerms;
+    public List<String> getCorrelatedTerms() {
+        return correlatedTerms;
     }
 
-    public void setSignificantTerms(List<String> significantTerms) {
-        this.significantTerms = significantTerms;
+    public void setCorrelatedTerms(List<String> correlatedTerms) {
+        this.correlatedTerms = correlatedTerms;
     }
 }

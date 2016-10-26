@@ -49,7 +49,7 @@ public class SearchResource {
                 .map(i -> new SearchResponseItem(i.getPostcode(), i.getSicCode(),
                         this.sic07TitleProvider.getTitle(i.getSicCode()),
                         (int) i.getResult(), (int) i.getTotal()))
-                .collect(toList()), convert(result.getPostcodeStats()), result.getSignificantTerms());
+                .collect(toList()), convert(result.getPostcodeStats()), result.getCorrelatedTerms());
         return response;
     }
 
