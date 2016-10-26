@@ -23,7 +23,9 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.significant.SignificantStringTerms;
+import org.elasticsearch.search.aggregations.bucket.significant.heuristics.GND;
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.joda.time.DateTimeZone;
@@ -371,7 +373,10 @@ public class EcepIndex {
                         .subAggregation(terms("sicCode").size(10000).field("sicCodes").order(Terms.Order.term(true))))
                 .addAggregation(terms("postcodeAbs").size(1100).field("address.postcode").order(Terms.Order.count(false)))
                 .addAggregation(significantTerms("postcodeRel").size(1100).field("address.postcode"))
-                .addAggregation(significantTerms("correlatedTerms").size(100).field("content.general"))
+                .addAggregation(significantTerms("correlatedTerms").size(200).field("content.general")
+                        .significanceHeuristic(new GND.GNDBuilder(true))
+                        .exclude(".*(\\.|_|[0-9][0-9]).*")
+                )
                 .setSize(5).setFetchSource(null, "content.general");
         SearchResponse esResponse = esRequest.get();
         List<Company> topHits = Arrays.stream(esResponse.getHits().getHits())
@@ -406,7 +411,8 @@ public class EcepIndex {
         PostcodeStats postcodeStats = new PostcodeStats(postcodesAbs, postcodesRel);
         List<String> correlatedTerms = ((SignificantStringTerms) esResponse.getAggregations().get("correlatedTerms"))
                 .getBuckets().stream()
-                .map(b -> b.getKeyAsString())
+                .limit(32)
+                .map(MultiBucketsAggregation.Bucket::getKeyAsString)
                 .collect(toList());
         return new SearchResult(esResponse.getHits().getTotalHits(), topHits, items, postcodeStats, correlatedTerms);
     }
