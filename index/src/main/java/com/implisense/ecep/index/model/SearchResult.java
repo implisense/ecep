@@ -4,16 +4,19 @@ import java.util.List;
 
 public class SearchResult {
     private long numHits;
-    private List<SearchResultItem> items;
+    private List<Company> topHits;
+    private List<PostcodeIndustryItem> postcodeIndustryDistribution;
     private PostcodeStats postcodeStats;
     private List<String> correlatedTerms;
 
     public SearchResult() {
     }
 
-    public SearchResult(long numHits, List<SearchResultItem> items, PostcodeStats postcodeStats, List<String> correlatedTerms) {
+    public SearchResult(long numHits, List<Company> topHits, List<PostcodeIndustryItem> postcodeIndustryDistribution,
+                        PostcodeStats postcodeStats, List<String> correlatedTerms) {
         this.numHits = numHits;
-        this.items = items;
+        this.topHits = topHits;
+        this.postcodeIndustryDistribution = postcodeIndustryDistribution;
         this.postcodeStats = postcodeStats;
         this.correlatedTerms = correlatedTerms;
     }
@@ -26,12 +29,20 @@ public class SearchResult {
         this.numHits = numHits;
     }
 
-    public List<SearchResultItem> getItems() {
-        return items;
+    public List<Company> getTopHits() {
+        return topHits;
     }
 
-    public void setItems(List<SearchResultItem> items) {
-        this.items = items;
+    public void setTopHits(List<Company> topHits) {
+        this.topHits = topHits;
+    }
+
+    public List<PostcodeIndustryItem> getPostcodeIndustryDistribution() {
+        return postcodeIndustryDistribution;
+    }
+
+    public void setPostcodeIndustryDistribution(List<PostcodeIndustryItem> postcodeIndustryDistribution) {
+        this.postcodeIndustryDistribution = postcodeIndustryDistribution;
     }
 
     public PostcodeStats getPostcodeStats() {

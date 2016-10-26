@@ -45,11 +45,16 @@ public class SearchResource {
         this.geocoder.init();
         SearchResult result = this.ecepIndex.search(request.getQuery(), request.getPostCode(),
                 request.getSicCode(), request.getCategory());
-        SearchResponse response = new SearchResponse(request, result.getItems().stream()
-                .map(i -> new SearchResponseItem(i.getPostcode(), i.getSicCode(),
-                        this.sic07TitleProvider.getTitle(i.getSicCode()),
-                        (int) i.getResult(), (int) i.getTotal()))
-                .collect(toList()), convert(result.getPostcodeStats()), result.getCorrelatedTerms());
+        SearchResponse response = new SearchResponse(request,
+                result.getTopHits(),
+                result.getPostcodeIndustryDistribution().stream()
+                        .map(i -> new PostcodeIndustryItem(i.getPostcode(), i.getSicCode(),
+                                this.sic07TitleProvider.getTitle(i.getSicCode()),
+                                (int) i.getResult(), (int) i.getTotal()))
+                        .collect(toList()),
+                convert(result.getPostcodeStats()),
+                result.getCorrelatedTerms()
+        );
         return response;
     }
 

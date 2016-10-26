@@ -1,16 +1,16 @@
 package com.implisense.ecep.api.model;
 
-public class SearchResponseItem {
+public class PostcodeIndustryItem {
     private String postCode;
     private String sicCode;
     private String sicTitle;
     private int result;
     private int total;
 
-    public SearchResponseItem() {
+    public PostcodeIndustryItem() {
     }
 
-    public SearchResponseItem(String postCode, String sicCode, String sicTitle, int result, int total) {
+    public PostcodeIndustryItem(String postCode, String sicCode, String sicTitle, int result, int total) {
         this.postCode = postCode;
         this.sicCode = sicCode;
         this.sicTitle = sicTitle;

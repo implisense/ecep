@@ -78,8 +78,8 @@ public class EcepIndexTest {
         {
             SearchResult result = index.search("", "", "", "");
             assertThat(result.getNumHits(), is(100L));
-            assertThat(result.getItems(), hasSize(53));
-            for (SearchResultItem item : result.getItems()) {
+            assertThat(result.getPostcodeIndustryDistribution(), hasSize(53));
+            for (PostcodeIndustryItem item : result.getPostcodeIndustryDistribution()) {
                 // it was a matchAllQuery, so both counts have to be equal for each item
                 assertThat(item.getResult(), is(item.getTotal()));
             }
@@ -87,26 +87,26 @@ public class EcepIndexTest {
         {
             SearchResult result = index.search("", "A32", "", "");
             assertThat(result.getNumHits(), is(3L));
-            assertThat(result.getItems(), hasSize(3));
-            for (SearchResultItem item : result.getItems()) {
+            assertThat(result.getPostcodeIndustryDistribution(), hasSize(3));
+            for (PostcodeIndustryItem item : result.getPostcodeIndustryDistribution()) {
                 assertThat(item.getPostcode(), equalTo("A32"));
                 assertThat(item.getResult(), is(3L));
                 assertThat(item.getTotal(), is(3L));
             }
             // make sure the sic codes are unique
-            assertThat(result.getItems().stream().map(i -> i.getSicCode()).sorted().distinct().count(), is(3L));
+            assertThat(result.getPostcodeIndustryDistribution().stream().map(i -> i.getSicCode()).sorted().distinct().count(), is(3L));
         }
         {
             SearchResult result = index.search("", "A33", "", "");
             assertThat(result.getNumHits(), is(1L));
-            assertThat(result.getItems(), hasSize(3));
-            for (SearchResultItem item : result.getItems()) {
+            assertThat(result.getPostcodeIndustryDistribution(), hasSize(3));
+            for (PostcodeIndustryItem item : result.getPostcodeIndustryDistribution()) {
                 assertThat(item.getPostcode(), equalTo("A33"));
                 assertThat(item.getResult(), is(1L));
                 assertThat(item.getTotal(), is(1L));
             }
             // make sure the sic codes are unique
-            assertThat(result.getItems().stream().map(i -> i.getSicCode()).sorted().distinct().count(), is(3L));
+            assertThat(result.getPostcodeIndustryDistribution().stream().map(i -> i.getSicCode()).sorted().distinct().count(), is(3L));
         }
     }
 

@@ -372,9 +372,13 @@ public class EcepIndex {
                 .addAggregation(terms("postcodeAbs").size(1100).field("address.postcode").order(Terms.Order.count(false)))
                 .addAggregation(significantTerms("postcodeRel").size(1100).field("address.postcode"))
                 .addAggregation(significantTerms("correlatedTerms").size(100).field("content.general"))
-                .setSize(0);
+                .setSize(5).setFetchSource(null, "content.general");
         SearchResponse esResponse = esRequest.get();
-        List<SearchResultItem> items = new ArrayList<>();
+        List<Company> topHits = Arrays.stream(esResponse.getHits().getHits())
+                .map(SearchHit::getSourceAsString)
+                .map(this::parseCompany)
+                .collect(toList());
+        List<PostcodeIndustryItem> items = new ArrayList<>();
         StringTerms postcodeAgg = esResponse.getAggregations().get("postcode");
         for (Terms.Bucket postcodeBucket : postcodeAgg.getBuckets()) {
             String bucketPostCode = postcodeBucket.getKeyAsString();
@@ -387,7 +391,7 @@ public class EcepIndex {
                     globalCount = -1L;
                     LOGGER.warn("global count unknown for key: \"" + globalKey + "\"");
                 }
-                items.add(new SearchResultItem(bucketPostCode, bucketSicCode,
+                items.add(new PostcodeIndustryItem(bucketPostCode, bucketSicCode,
                         sicCodeBucket.getDocCount(), globalCount));
             }
         }
@@ -404,7 +408,7 @@ public class EcepIndex {
                 .getBuckets().stream()
                 .map(b -> b.getKeyAsString())
                 .collect(toList());
-        return new SearchResult(esResponse.getHits().getTotalHits(), items, postcodeStats, correlatedTerms);
+        return new SearchResult(esResponse.getHits().getTotalHits(), topHits, items, postcodeStats, correlatedTerms);
     }
 
     private void put(String type, Object document, String id) {

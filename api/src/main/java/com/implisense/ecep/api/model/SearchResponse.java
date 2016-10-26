@@ -1,19 +1,25 @@
 package com.implisense.ecep.api.model;
 
+import com.implisense.ecep.index.model.Company;
+
 import java.util.List;
 
 public class SearchResponse {
     private SearchRequest request;
-    private List<SearchResponseItem> results;
+    private List<Company> topHits;
+    private List<PostcodeIndustryItem> postcodeIndustryDistribution;
     private HeatmapData heatmap;
     private List<String> correlatedTerms;
 
     public SearchResponse() {
     }
 
-    public SearchResponse(SearchRequest request, List<SearchResponseItem> results, HeatmapData heatmap, List<String> correlatedTerms) {
+    public SearchResponse(SearchRequest request, List<Company> topHits,
+                          List<PostcodeIndustryItem> postcodeIndustryDistribution, HeatmapData heatmap,
+                          List<String> correlatedTerms) {
         this.request = request;
-        this.results = results;
+        this.topHits = topHits;
+        this.postcodeIndustryDistribution = postcodeIndustryDistribution;
         this.heatmap = heatmap;
         this.correlatedTerms = correlatedTerms;
     }
@@ -26,12 +32,20 @@ public class SearchResponse {
         this.request = request;
     }
 
-    public List<SearchResponseItem> getResults() {
-        return results;
+    public List<Company> getTopHits() {
+        return topHits;
     }
 
-    public void setResults(List<SearchResponseItem> results) {
-        this.results = results;
+    public void setTopHits(List<Company> topHits) {
+        this.topHits = topHits;
+    }
+
+    public List<PostcodeIndustryItem> getPostcodeIndustryDistribution() {
+        return postcodeIndustryDistribution;
+    }
+
+    public void setPostcodeIndustryDistribution(List<PostcodeIndustryItem> postcodeIndustryDistribution) {
+        this.postcodeIndustryDistribution = postcodeIndustryDistribution;
     }
 
     public HeatmapData getHeatmap() {

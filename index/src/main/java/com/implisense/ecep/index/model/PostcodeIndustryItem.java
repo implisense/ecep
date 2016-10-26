@@ -1,12 +1,12 @@
 package com.implisense.ecep.index.model;
 
-public class SearchResultItem {
+public class PostcodeIndustryItem {
     private String postcode;
     private String sicCode;
     private long result;
     private long total;
 
-    public SearchResultItem(String postcode, String sicCode, long result, long total) {
+    public PostcodeIndustryItem(String postcode, String sicCode, long result, long total) {
         this.postcode = postcode;
         this.sicCode = sicCode;
         this.result = result;
