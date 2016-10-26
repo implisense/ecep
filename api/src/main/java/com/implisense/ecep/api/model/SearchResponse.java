@@ -6,16 +6,16 @@ public class SearchResponse {
     private SearchRequest request;
     private List<SearchResponseItem> results;
     private HeatmapData heatmap;
-    private List<String> significantTerms;
+    private List<String> correlatedTerms;
 
     public SearchResponse() {
     }
 
-    public SearchResponse(SearchRequest request, List<SearchResponseItem> results, HeatmapData heatmap, List<String> significantTerms) {
+    public SearchResponse(SearchRequest request, List<SearchResponseItem> results, HeatmapData heatmap, List<String> correlatedTerms) {
         this.request = request;
         this.results = results;
         this.heatmap = heatmap;
-        this.significantTerms = significantTerms;
+        this.correlatedTerms = correlatedTerms;
     }
 
     public SearchRequest getRequest() {
@@ -42,11 +42,11 @@ public class SearchResponse {
         this.heatmap = heatmap;
     }
 
-    public List<String> getSignificantTerms() {
-        return significantTerms;
+    public List<String> getCorrelatedTerms() {
+        return correlatedTerms;
     }
 
-    public void setSignificantTerms(List<String> significantTerms) {
-        this.significantTerms = significantTerms;
+    public void setCorrelatedTerms(List<String> correlatedTerms) {
+        this.correlatedTerms = correlatedTerms;
     }
 }
