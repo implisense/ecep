@@ -9,7 +9,7 @@ public class PostcodeData {
     public PostcodeData() {
     }
 
-    public PostcodeData(Coordinates coordinates, int population, int households, String urbanity) {
+    public PostcodeData(Coordinates coordinates, Integer population, Integer households, String urbanity) {
         this.coordinates = coordinates;
         this.population = population;
         this.households = households;
@@ -24,19 +24,19 @@ public class PostcodeData {
         this.coordinates = coordinates;
     }
 
-    public int getPopulation() {
+    public Integer getPopulation() {
         return population;
     }
 
-    public void setPopulation(int population) {
+    public void setPopulation(Integer population) {
         this.population = population;
     }
 
-    public int getHouseholds() {
+    public Integer getHouseholds() {
         return households;
     }
 
-    public void setHouseholds(int households) {
+    public void setHouseholds(Integer households) {
         this.households = households;
     }
 

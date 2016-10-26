@@ -50,9 +50,9 @@ public class Geocoder {
                         new PostcodeData(
                                 Double.parseDouble(record.get(2)),
                                 Double.parseDouble(record.get(3)),
-                                record.get(19).isEmpty() ? -1 : Integer.parseInt(record.get(19)),
-                                record.get(20).isEmpty() ? -1 : Integer.parseInt(record.get(20)),
-                                record.get(24)));
+                                record.get(19).isEmpty() ? null : Integer.parseInt(record.get(19)),
+                                record.get(20).isEmpty() ? null : Integer.parseInt(record.get(20)),
+                                record.get(24).isEmpty() ? null : record.get(24)));
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("Geocoder source \"" + source + "\" was not readable!", e);
