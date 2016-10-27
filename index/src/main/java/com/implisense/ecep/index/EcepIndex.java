@@ -375,7 +375,7 @@ public class EcepIndex {
                 .addAggregation(significantTerms("postcodeRel").size(1100).field("address.postcode"))
                 .addAggregation(significantTerms("correlatedTerms").size(200).field("content.general")
                         .significanceHeuristic(new GND.GNDBuilder(true))
-                        .exclude(".*(\\.|_|[0-9][0-9]).*")
+                        .exclude("[0-9]+|.*(\\.|_|:|[0-9][0-9][0-9]).*")
                 )
                 .setSize(5).setFetchSource(null, "content.general");
         SearchResponse esResponse = esRequest.get();
