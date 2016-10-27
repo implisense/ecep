@@ -142,7 +142,10 @@ public class DataResource {
         return new BufferedReader(new InputStreamReader(inputStream, UTF_8));
     }
 
-    private boolean isGzipContent(byte[] input) {
+    private boolean isGzipContent(byte[] input) throws IOException {
+        if (input.length < 2) {
+            throw new IOException("Empty file!");
+        }
         int head = ((int) input[0] & 0xff) | ((input[1] << 8) & 0xff00);
         return (GZIPInputStream.GZIP_MAGIC == head);
     }

@@ -41,6 +41,9 @@ public class CompaniesHouseFormatParser {
 
     public Iterable<Company> iterateCompanies(byte[] input, Charset charset) {
         final Iterator<CSVRecord> records = buildReader(input, charset);
+        if (!records.hasNext()) {
+            throw new CompaniesHouseParsingException("Empty file!");
+        }
         final ColumnIndices idx = parseHeader(records.next());
         return new Iterable<Company>() {
             @Override
