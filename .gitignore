@@ -20,3 +20,5 @@ dependency-reduced-pom.xml
 /cache.*
 .unison*
 *.log
+
+dev.yml
