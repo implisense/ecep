@@ -62,7 +62,7 @@ POST http://localhost:8061/search
 Or via curl:
 
 ```shell
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Basic WFFMOThNREdGVlZIQUowTDo=" -H "Cache-Control: no-cache" -H "Postman-Token: a9bc0f11-6043-215d-6c65-e33eff563cf2" -d '{
+curl -X POST -H "Content-Type: application/json" -d '{
     "query": "design",
     "sicCode": "13.93",
     "postCode": "SA73 3JP",
