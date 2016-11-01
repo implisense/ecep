@@ -20,12 +20,34 @@ To get the ECEP software, just clone this repository or download a snapshot as a
 wget https://github.com/implisense/ecep/archive/master.zip && unzip master.zip
 ```
 
-This creates the directory ```ecep-master``` with the project files. For support of geographical data simply download http://www.doogal.co.uk/files/postcodes.zip and place it into the ```api``` directory:
+This creates the directory ```ecep-master``` with the project files. We go there and install the artifacts into the local maven repository:
+
+```shell
+cd ecep-master
+mvn install
+```
+
+For support of geographical data simply download http://www.doogal.co.uk/files/postcodes.zip and place it into the ```api``` directory:
 
 ```shell
 cd ecep-master/api
 wget http://www.doogal.co.uk/files/postcodes.zip
 ```
+
+Now we are ready to start the application:
+
+```shell
+mvn exec:java
+```
+
+This creates an empty ecep index in the local elasticsearch installation and starts an HTTP-Server listening on port 8061. Now we can put the [companieshouse data](http://download.companieshouse.gov.uk/en_output.html) into the index:
+
+```shell
+wget http://download.companieshouse.gov.uk/BasicCompanyData-2016-11-01-part1_5.zip
+curl -XPOST --data-binary "@BasicCompanyData-2016-11-01-part1_5.zip" http://localhost:8061/data/companies
+```
+
+You might want to do this for all five files (simply exchange the suffix). 
 
 ## License
 
