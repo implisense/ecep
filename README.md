@@ -47,7 +47,28 @@ wget http://download.companieshouse.gov.uk/BasicCompanyData-2016-11-01-part1_5.z
 curl -XPOST --data-binary "@BasicCompanyData-2016-11-01-part1_5.zip" http://localhost:8061/data/companies
 ```
 
-You might want to do this for all five files (simply exchange the suffix). 
+You might want to do this for all five files (simply exchange the suffix). Now we have set up everything to query the API:
+
+```
+POST http://localhost:8061/search
+{
+    "query": "design",
+    "sicCode": "13.93",
+    "postCode": "SA73 3JP",
+    "category": "Private Limited Company"
+}
+```
+
+Or via curl:
+
+```shell
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Basic WFFMOThNREdGVlZIQUowTDo=" -H "Cache-Control: no-cache" -H "Postman-Token: a9bc0f11-6043-215d-6c65-e33eff563cf2" -d '{
+    "query": "design",
+    "sicCode": "13.93",
+    "postCode": "SA73 3JP",
+    "category": "Private Limited Company"
+}' "http://localhost:8061/search"
+```
 
 ## License
 
